@@ -37,8 +37,12 @@ wait_for_server
 restart_hint="Nothing was synced. Delete $JOPLIN_PROFILE, run make joplin-configure, then make import."
 failed=()
 for f in "${files[@]}"; do
-    echo "==> $(basename "$f")"
-    joplin import --format enex --output-format "$fmt" -f "$f" || failed+=("$f")
+    name="$(basename "$f" .enex)"
+    echo "==> $name"
+    # Create the notebook explicitly: without a target, `joplin import` puts
+    # every file after the first into the first notebook (defaultFolder()).
+    { joplin mkbook "$name" && joplin import --format enex --output-format "$fmt" -f "$f" "$name"; } \
+        || failed+=("$f")
 done
 (( ${#failed[@]} == 0 )) || die "import failed for: ${failed[*]}
 $restart_hint"
@@ -46,6 +50,9 @@ $restart_hint"
 actual="$(note_total)"
 [[ "$actual" == "$expected" ]] || die "ENEX files contain $expected notes but Joplin has $actual.
 $restart_hint"
+echo "==> per-notebook check"
+joplin status | python3 "$ROOT/scripts/verify_import.py" "${files[@]}" \
+    || die "notebooks don't match the ENEX files. $restart_hint"
 
 { date -Is; printf '%s\n' "${files[@]}"; } > "$IMPORT_MARKER"
 echo "==> verified $actual/$expected notes; syncing to ${APP_BASE_URL%/}"

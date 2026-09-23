@@ -51,9 +51,11 @@ export JOPLIN_PROFILE="$DATA_DIR/second-client"
 "$ROOT/scripts/joplin-configure.sh"
 J() { "$ROOT/node_modules/.bin/joplin" --profile "$JOPLIN_PROFILE" "$@"; }
 J sync
-books="$(J ls /)"
-echo "$books"
-grep -q "Sample Notebook" <<<"$books" || fail "notebook missing on second client"
+notebooks="$(J status | sed -n '/^# Notebooks/,$p')"
+echo "$notebooks"
+# One notebook per ENEX file, each with only its own notes.
+grep -qx "Sample Notebook: 2 notes" <<<"$notebooks" || fail "Sample Notebook should have 2 notes"
+grep -qx "Work Log: 1 notes\?" <<<"$notebooks" || fail "Work Log should have 1 note"
 J use "Sample Notebook"
 notes="$(J ls)"
 echo "$notes"
