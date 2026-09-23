@@ -2,9 +2,13 @@
 
 # Secrets
 .env
+.env.*
+!.env.example
 
-# Evernote backup, ENEX exports, Joplin CLI profile, DB dumps (private data)
+# Evernote backup, ENEX exports, Joplin CLI profiles, DB dumps (private data)
 data/
+data-test/
+tmp/
 
 # Tooling
 .venv/

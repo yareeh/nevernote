@@ -3,19 +3,25 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$ROOT/.env}"
-DATA_DIR="${DATA_DIR:-$ROOT/data}"
-JOPLIN_PROFILE="${JOPLIN_PROFILE:-$DATA_DIR/joplin-cli}"
-ENEX_DIR="${ENEX_DIR:-$DATA_DIR/enex}"
-IMPORT_MARKER="$JOPLIN_PROFILE/.enex-imported"
+[[ "$ENV_FILE" == /* ]] || ENV_FILE="$ROOT/$ENV_FILE"
 
 die() { echo "error: $*" >&2; exit 1; }
 
+abspath() { [[ "$1" == /* ]] && echo "$1" || echo "$ROOT/$1"; }
+
+# Source the env file, then derive paths. DATA_DIR and ENEX_DIR may be set in
+# the env file (relative paths are relative to the repo root), which is how
+# .env and .env.test keep separate CLI profiles and inputs.
 load_env() {
     [[ -f "$ENV_FILE" ]] || die "$ENV_FILE not found; run: cp .env.example .env && \$EDITOR .env"
     set -a
     # shellcheck disable=SC1090
     source "$ENV_FILE"
     set +a
+    DATA_DIR="$(abspath "${DATA_DIR:-data}")"
+    ENEX_DIR="$(abspath "${ENEX_DIR:-$DATA_DIR/enex}")"
+    JOPLIN_PROFILE="$(abspath "${JOPLIN_PROFILE:-$DATA_DIR/joplin-cli}")"
+    IMPORT_MARKER="$JOPLIN_PROFILE/.enex-imported"
 }
 
 require_env() {
@@ -24,6 +30,8 @@ require_env() {
         [[ -n "${!v:-}" ]] || die "$v is not set in $ENV_FILE"
     done
 }
+
+compose() { docker compose --project-directory "$ROOT" --env-file "$ENV_FILE" "$@"; }
 
 joplin() {
     [[ -x "$ROOT/node_modules/.bin/joplin" ]] || die "Joplin CLI missing; run: make setup"

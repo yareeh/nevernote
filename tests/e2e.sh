@@ -6,10 +6,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT=my-joplin-e2e
 WORK="$(mktemp -d)"
-export ENV_FILE="$WORK/.env" DATA_DIR="$WORK/data" ENEX_DIR="$ROOT/tests/fixtures"
-export JOPLIN_PROFILE="$DATA_DIR/joplin-cli"
+DATA_DIR="$WORK/data"
+export ENV_FILE="$WORK/.env"
 
+# Paths come from the env file, the same way .env.test configures its instance.
 cat > "$ENV_FILE" <<ENV
+COMPOSE_PROJECT_NAME=$PROJECT
+DATA_DIR=$DATA_DIR
+ENEX_DIR=$ROOT/tests/fixtures
 APP_BASE_URL=http://localhost:22399
 APP_PORT=22399
 POSTGRES_USER=joplin
@@ -23,7 +27,7 @@ JOPLIN_USER_NAME=E2E
 IMPORT_OUTPUT_FORMAT=md
 ENV
 
-dc() { docker compose -p "$PROJECT" --project-directory "$ROOT" --env-file "$ENV_FILE" "$@"; }
+dc() { docker compose --project-directory "$ROOT" --env-file "$ENV_FILE" "$@"; }
 cleanup() {
     if [[ -n "${KEEP:-}" ]]; then echo "KEEP set: stack $PROJECT and $WORK left in place"; return; fi
     dc down -v >/dev/null 2>&1 || true

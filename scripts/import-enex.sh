@@ -13,7 +13,11 @@ See README 'Starting over' if you really want to redo the migration."
 fi
 
 shopt -s nullglob
-files=("$ENEX_DIR"/*.enex)
+files=()
+for f in "$ENEX_DIR"/*.enex; do
+    # Skip macOS AppleDouble "._*" files that ride along when copying from a Mac.
+    [[ "$(basename "$f")" == ._* ]] || files+=("$f")
+done
 (( ${#files[@]} )) || die "no .enex files in $ENEX_DIR; run: make evernote-export"
 
 grep -q "my-joplin patch" "$ROOT/node_modules/joplin/app.js" \
