@@ -1,1 +1,12 @@
 /tmp
+
+# Secrets
+.env
+
+# Evernote backup, ENEX exports, Joplin CLI profile, DB dumps (private data)
+data/
+
+# Tooling
+.venv/
+node_modules/
+__pycache__/

@@ -1,0 +1,14 @@
+{
+  "name": "my-joplin",
+  "private": true,
+  "description": "Pinned Joplin terminal client used for the one-off ENEX import",
+  "dependencies": {
+    "joplin": "3.7.1"
+  },
+  "devDependencies": {
+    "patch-package": "8.0.1"
+  },
+  "scripts": {
+    "postinstall": "patch-package"
+  }
+}
