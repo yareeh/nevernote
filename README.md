@@ -102,6 +102,72 @@ see **only** `data/viewer`, read-only. It follows the
 
 The viewer itself has no login: anyone on the LAN can read the archive.
 
+### TLS and access control: bring your own
+
+Nevernote doesn't do TLS, logins or access control, **on purpose**. Mature open
+source tools already do this well, and everyone's needs differ (a home LAN, a
+VPN, single sign-on, client certificates…). So the viewer does one job: serve
+the archive read-only, over plain HTTP, from a locked-down container. Whatever
+you put in front of it decides who gets in and how.
+
+By default the container publishes port 8765 on **all interfaces** of the host
+(`VIEWER_PORT=8765`), so any device on the network can reach it. That's fine on
+a trusted home LAN. To put a gatekeeper in front, bind the viewer to the host
+only:
+
+```bash
+# .env
+VIEWER_PORT=127.0.0.1:8765
+```
+
+Then run `make viewer-up`. Now only processes on the host can reach it, and
+your proxy is the only way in. For example, **nginx** with TLS and a password
+(`sudo apt install nginx apache2-utils`):
+
+```nginx
+# /etc/nginx/sites-available/nevernote  (then ln -s into sites-enabled/)
+server {
+    listen 443 ssl;
+    server_name notes.home.example;                 # your hostname
+
+    ssl_certificate     /etc/ssl/nevernote/fullchain.pem;
+    ssl_certificate_key /etc/ssl/nevernote/privkey.pem;
+
+    # Password: sudo htpasswd -c /etc/nginx/nevernote.htpasswd yourname
+    auth_basic           "Nevernote";
+    auth_basic_user_file /etc/nginx/nevernote.htpasswd;
+
+    location / {
+        proxy_pass http://127.0.0.1:8765;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+`sudo nginx -t && sudo systemctl reload nginx`, then browse to
+`https://notes.home.example/`.
+
+Keep in mind:
+- **Its own host or port, not a sub-path.** The viewer's links are
+  root-relative (`/notes/…`, `/files/…`, `/static/…`), so proxy the whole host
+  or port (as above), not `https://example/nevernote/`.
+- **Read-only traffic only.** The viewer only answers `GET` requests, so the
+  proxy needs no upload or body-size tuning.
+- **Other tools do the same job:**
+  - [Caddy](https://caddyserver.com/) sets up TLS certificates automatically.
+  - [Traefik](https://traefik.io/) suits container setups.
+  - [oauth2-proxy](https://oauth2-proxy.github.io/oauth2-proxy/),
+    [Authelia](https://www.authelia.com/) or [Authentik](https://goauthentik.io/)
+    add single sign-on.
+  - A VPN such as [WireGuard](https://www.wireguard.com/) or
+    [Tailscale](https://tailscale.com/) means it's never exposed at all.
+- **Proxy in a container:** to run the proxy as another container on a shared
+  Podman network, drop `PublishPort=` from `deploy/nevernote.container` and add
+  `Network=` for that network. The proxy then reaches the viewer as
+  `nevernote:8765`.
+
 ## What it does
 
 - **Notebooks and stacks:** one `.enex` file is one notebook, and a

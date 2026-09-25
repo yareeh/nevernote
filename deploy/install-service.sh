@@ -57,4 +57,8 @@ systemctl --user daemon-reload  # runs Podman's generator -> nevernote.service
 echo "Installed $QUADLET"
 echo "  DATA_DIR=$DATA_DIR (mounted read-only; readable by container uid $VIEWER_HOST_UID)"
 echo "  PORT=$PORT"
-echo "Viewer URL: http://$(hostname -I | awk '{print $1}'):$PORT"
+if [[ "$PORT" == *:* ]]; then
+    echo "Viewer URL: http://$PORT"  # bound to one address, e.g. behind a reverse proxy
+else
+    echo "Viewer URL: http://$(hostname -I | awk '{print $1}'):$PORT"
+fi

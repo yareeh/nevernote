@@ -150,3 +150,13 @@ def test_rendered_quadlet_is_accepted_by_podman(tmp_path: Path) -> None:
     for flag in ("--read-only", "--cap-drop=all", "--security-opt=no-new-privileges"):
         assert flag in unit, flag
     assert shutil.which("podman")
+
+
+def test_port_can_be_bound_to_localhost_for_a_reverse_proxy(tmp_path: Path) -> None:
+    data = data_with_index(tmp_path)
+    result, quadlet, _ = run_install(
+        tmp_path, [f"DATA_DIR={data}", "VIEWER_PORT=127.0.0.1:8765"]
+    )
+    assert result.returncode == 0, result.stderr
+    assert "PublishPort=127.0.0.1:8765:8765\n" in quadlet.read_text()
+    assert "Viewer URL: http://127.0.0.1:8765" in result.stdout
