@@ -42,11 +42,19 @@ def test_home_lists_notebooks_tags_and_all_notes(client: TestClient) -> None:
     assert sorted(list_titles(doc)) == ["Pancakes", "Soup", "Tax scan"]
 
 
-def test_branding_is_nevernote(client: TestClient) -> None:
+def test_branding_is_the_nevernote_logo(client: TestClient) -> None:
     doc = page(client, "/")
-    assert texts(doc, "brand") == ["Nevernote archive"]
+    [brand] = doc.find_class("brand")
+    assert brand.text_content().strip() == ""  # the logo replaces the text
+    [logo] = brand.findall(".//img")
+    assert logo.get("src") == "/static/nevernote.png"
+    assert logo.get("alt") == "nevernote"
+    r = client.get("/static/nevernote.png")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/png"
     assert doc.findtext(".//title").endswith("· Nevernote archive")
     assert "Evernote" not in client.get("/").text
+
 
 
 def test_notebook_page_lists_its_notes(client: TestClient) -> None:

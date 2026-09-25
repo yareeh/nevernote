@@ -25,6 +25,7 @@
     --accent: #6ea8ff;
     --mark: #5c4d00;
   }
+  .brand img { background: #fff; border-radius: 6px; padding: 2px 6px; }
 }
 
 * { box-sizing: border-box; }
@@ -52,7 +53,8 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; }
   border-bottom: 1px solid var(--border);
   background: var(--bg-side);
 }
-.brand { font-weight: 600; color: var(--fg); white-space: nowrap; }
+.brand { display: flex; align-items: center; flex: none; }
+.brand img { display: block; height: 32px; width: auto; }
 .search { flex: 1; max-width: 520px; }
 .search input {
   width: 100%;
@@ -180,7 +182,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; }
 /* Phones and narrow windows: one pane at a time. */
 @media (max-width: 860px) {
   .topbar { gap: 10px; }
-  .brand { display: none; }
+  .brand img { height: 24px; }
   .search { max-width: none; }
   .layout { display: block; height: auto; }
   .sidebar {
