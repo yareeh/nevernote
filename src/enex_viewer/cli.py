@@ -52,6 +52,13 @@ def _index(enex_dir: Path, data_dir: Path) -> None:
         ),
         flush=True,
     )
+    if stats.broken_files:
+        print(
+            f"WARNING: {len(stats.broken_files)} file(s) were only partly indexed: "
+            + ", ".join(stats.broken_files),
+            file=sys.stderr,
+            flush=True,
+        )
 
 
 def main(argv: Sequence[str] | None = None) -> int:

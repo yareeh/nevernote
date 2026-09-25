@@ -116,6 +116,24 @@ def test_full_text_search(enex_dir: Path, tmp_path: Path) -> None:
     assert found == [("Soup",)]
 
 
+def test_broken_file_keeps_parsed_notes_and_other_notebooks(
+    enex_dir: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    broken = write(enex_dir / "Broken.enex", note("Good one"), note("Lost"))
+    text = broken.read_text()
+    broken.write_text(text[: text.index("<title>Lost")] + "<title>Lost</oops>")
+    stats = build_index(enex_dir, tmp_path / "data")
+    assert stats.notebooks == 3
+    assert stats.notes == 5  # 4 from the fixture + "Good one"
+    assert stats.broken_files == ["Broken.enex"]
+    assert "Broken.enex" in caplog.text
+    titles = {
+        t
+        for (t,) in rows(tmp_path / "data" / "index.sqlite", "SELECT title FROM notes")
+    }
+    assert "Good one" in titles
+
+
 def test_duplicate_guid_keeps_first(enex_dir: Path, tmp_path: Path) -> None:
     write(enex_dir / "Zdup.enex", note("Pancakes copy", guid=G1))
     stats = build_index(enex_dir, tmp_path / "data")

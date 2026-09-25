@@ -9,7 +9,8 @@ import hashlib
 import logging
 import os
 import sqlite3
-from dataclasses import dataclass
+import xml.etree.ElementTree as ET
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -75,6 +76,7 @@ class IndexStats:
     notes: int
     resources: int
     duplicate_guids: int
+    broken_files: list[str] = field(default_factory=lambda: [])
 
 
 def enex_files(enex_dir: Path) -> list[Path]:
@@ -140,6 +142,7 @@ class _Builder:
         self.hashes: set[str] = set()
         self.notes = 0
         self.duplicate_guids = 0
+        self.broken_files: list[str] = []
 
     def add_notebook(self, enex_dir: Path, path: Path) -> None:
         rel = path.relative_to(enex_dir)
@@ -151,9 +154,17 @@ class _Builder:
             (notebook_id, path.stem, stack, rel_s),
         )
         count = 0
-        for position, note in enumerate(iter_notes(path)):
-            if self._add_note(notebook_id, rel_s, position, note):
-                count += 1
+        try:
+            for position, note in enumerate(iter_notes(path)):
+                if self._add_note(notebook_id, rel_s, position, note):
+                    count += 1
+        except ET.ParseError as e:
+            # Keep what was read; one bad export file must not take down
+            # the whole archive.
+            self.broken_files.append(rel_s)
+            log.error(
+                "%s is not valid ENEX (%s); kept %d notes before it", rel_s, e, count
+            )
         self.conn.execute(
             "UPDATE notebooks SET note_count = ? WHERE id = ?", (count, notebook_id)
         )
@@ -253,4 +264,5 @@ def build_index(enex_dir: Path, data_dir: Path) -> IndexStats:
         notes=builder.notes,
         resources=len(builder.hashes),
         duplicate_guids=builder.duplicate_guids,
+        broken_files=builder.broken_files,
     )
