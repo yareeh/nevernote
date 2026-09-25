@@ -56,6 +56,17 @@ def test_branding_is_the_nevernote_logo(client: TestClient) -> None:
     assert "Evernote" not in client.get("/").text
 
 
+def test_topbar_links_to_the_github_repo(client: TestClient) -> None:
+    doc = page(client, "/")
+    [topbar] = doc.find_class("topbar")
+    children = [el for el in topbar if isinstance(el.tag, str)]
+    search = next(i for i, el in enumerate(children) if "search" in el.classes)
+    repo = children[search + 1]  # right of the search bar
+    assert repo.get("href") == "https://github.com/yareeh/nevernote"
+    assert repo.get("target") == "_blank"
+    assert "noopener" in (repo.get("rel") or "")
+    assert repo.get("aria-label") == "nevernote on GitHub"
+
 
 def test_notebook_page_lists_its_notes(client: TestClient) -> None:
     home = page(client, "/")

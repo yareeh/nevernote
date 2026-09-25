@@ -55,6 +55,8 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; }
 }
 .brand { display: flex; align-items: center; flex: none; }
 .brand img { display: block; height: 32px; width: auto; }
+.repo-link { display: flex; align-items: center; flex: none; color: var(--fg-muted); }
+.repo-link:hover { color: var(--fg); }
 .search { flex: 1; max-width: 520px; }
 .search input {
   width: 100%;
