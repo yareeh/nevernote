@@ -9,6 +9,7 @@ DB := data/evernote/en_backup.db
 EB := uv run evernote-backup
 SC := systemctl --user
 UNIT := nevernote.service
+IMAGE := localhost/nevernote-viewer:latest
 
 .PHONY: help setup evernote-init evernote-sync evernote-export \
         viewer-install viewer-up viewer-down viewer-status viewer-logs \
@@ -36,9 +37,10 @@ refresh: ## sync, re-index the viewer and replace the compressed ENEX archive in
 evernote-export: ## write one .enex per notebook (with note GUIDs) into data/enex/
 	$(EB) export -d $(DB) --add-guid --overwrite data/enex/
 
-viewer-install: ## install/refresh the systemd user service from .env (starts on boot)
+viewer-install: ## install/refresh the rootless Podman (Quadlet) service from .env (starts on boot)
 	deploy/install-service.sh
-viewer-up: ## (re)install and (re)start the viewer on this host
+viewer-up: ## build the image, (re)install the service and (re)start the viewer
+	podman build --format docker -t $(IMAGE) .
 	deploy/install-service.sh
 	$(SC) restart $(UNIT)
 viewer-down: ## stop the viewer (it still starts on boot; see viewer-uninstall)
@@ -47,10 +49,11 @@ viewer-status: ## show whether the viewer is running
 	$(SC) --no-pager status $(UNIT)
 viewer-logs: ## follow viewer logs
 	journalctl --user -u $(UNIT) -f
-viewer-uninstall: ## stop the viewer and remove the service (keeps data/)
-	-$(SC) disable --now $(UNIT)
-	rm -f $${XDG_CONFIG_HOME:-$$HOME/.config}/systemd/user/$(UNIT)
+viewer-uninstall: ## stop the viewer and remove the service and image (keeps data/)
+	-$(SC) stop $(UNIT)
+	rm -f $${XDG_CONFIG_HOME:-$$HOME/.config}/containers/systemd/nevernote.container
 	$(SC) daemon-reload
+	-podman image rm $(IMAGE)
 
 ##@ Development
 

@@ -1,0 +1,37 @@
+# Quadlet unit: rootless Podman runs the viewer as a systemd user service.
+# Rendered by deploy/install-service.sh into
+# ~/.config/containers/systemd/nevernote.container; Podman's generator turns it
+# into nevernote.service. The container can see only the index, read-only.
+
+[Unit]
+Description=Nevernote archive viewer (rootless Podman, read-only)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=localhost/nevernote-viewer:latest
+ContainerName=nevernote
+Exec=enex-viewer serve --no-index
+# The only mount: the index and attachment files, read-only. No ENEX files,
+# no backup DB, no login token.
+Volume=@DATA_DIR@:/data:ro
+# Your user maps to the image's `viewer` user (10001), so the owner-only
+# data/ stays readable without loosening permissions. Container root and every
+# other uid map to unprivileged subuids.
+UserNS=keep-id:uid=10001,gid=10001
+ReadOnly=true
+Tmpfs=/tmp:rw,size=64m,mode=1777
+DropCapability=all
+NoNewPrivileges=true
+PublishPort=@PORT@:8765
+PodmanArgs=--pids-limit=256 --memory=1g
+HealthCmd=python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/healthz', timeout=4)"
+HealthInterval=30s
+HealthStartPeriod=30s
+
+[Service]
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

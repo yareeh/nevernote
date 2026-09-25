@@ -10,41 +10,39 @@ this Linux box and you browse it from any device on the LAN. Nothing is
 copied to the client beyond what the browser shows.
 
 ```
-Evernote ──evernote-backup──► data/evernote/en_backup.db ──export --add-guid──► data/enex/*.enex
-                                                                                    │ (read-only)
-                          enex-viewer (systemd user service, :8765)  ◄──────────────┘
-                                        ├── data/viewer/ index.sqlite + blobs/<md5>  (derived, rebuilt when ENEX changes)
-                                        ├── web UI      /               notebooks | notes | note
-                                        └── JSON API    /api/...
+Evernote ──evernote-backup sync──► data/evernote/en_backup.db        (the backup; holds the login token)
+                                          │ make refresh: export to a temp dir, then
+                                          ├──► data/archive/enex-DATE.tar.zst   (full ENEX export, compressed)
+                                          └──► data/viewer/ index.sqlite + blobs/<md5>
+                                                      │ mounted read-only
+                            rootless Podman container: enex-viewer serve --no-index (:8765)
+                                          ├── web UI      /               notebooks | notes | note
+                                          └── JSON API    /api/...
 ```
 
 ## Quick start
 
+Prerequisites: [uv](https://docs.astral.sh/uv/), `zstd`, and rootless Podman
+(`sudo apt install podman uidmap slirp4netns`).
+
 ```bash
 make setup                                   # uv sync
-make evernote-init evernote-sync evernote-export
+make evernote-init                           # log in to Evernote (prints a URL)
+make refresh                                 # sync, build the index, write the archive
 make viewer-up                               # prints http://<this box>:8765
 ```
 
-To serve other ENEX files, e.g. exports from Evernote.app, set `ENEX_DIR` in
-`.env` (see `.env.example`):
-
-```bash
-echo 'ENEX_DIR=./tmp/evernote' > .env && make viewer-up
-```
-
-To pick up changes from Evernote later, run `make refresh`.
-On start it rebuilds the index when the ENEX files changed. An index takes
-seconds: 632 MB of ENEX indexes in about 2 s.
+Run `make refresh` again whenever you want the latest from Evernote. The viewer
+keeps serving while it runs and switches to the new index when it's done.
 
 ## Operating
 
 Make targets for running the archive: backing up Evernote and serving the
 viewer. `make` (or `make help`) lists them in the same two groups as this
-README. The viewer runs directly on this host as a systemd user service
-(`~/.config/systemd/user/nevernote.service`) using the repo's `.venv`; it
-starts on boot (lingering is enabled for the user). The viewer targets take
-`ENEX_DIR`, `DATA_DIR` and `VIEWER_PORT` from `.env` (see `.env.example`).
+README. The viewer runs in a rootless Podman container, defined as a
+Quadlet (`~/.config/containers/systemd/nevernote.container`), and starts on
+boot (lingering is enabled for the user). The viewer targets take `DATA_DIR`
+and `VIEWER_PORT` from `.env` (see `.env.example`).
 
 **Setup**
 
@@ -60,21 +58,47 @@ starts on boot (lingering is enabled for the user). The viewer targets take
 | `make evernote-init` | Creates `data/evernote/en_backup.db` and logs in to Evernote. It prints a URL to open in a browser, which works with 2FA/SSO. Run it once; `--force` on `evernote-backup init-db` starts over. `data/` is made private (mode 700) and the DB 600, since it stores your Evernote login token. |
 | `make evernote-sync` | Downloads everything new or changed from Evernote into the backup DB. The first run takes a while; after that it's incremental, so rerun it any time. |
 | `make refresh` | The routine update: syncs from Evernote, exports to a temporary `data/.enex-refresh/`, rebuilds the viewer's index (the viewer keeps serving and switches over atomically), then writes the full export to `data/archive/enex-DATE.tar.zst` (zstd, about 64% of the raw size). The archive is only kept after `zstd -t` and a file-count check pass, and it replaces the previous one, so there's always exactly one. The temporary export is deleted, including on failure. `scripts/refresh.sh --from DIR` archives and indexes an existing export instead. Restore with `tar -I zstd -xf data/archive/enex-DATE.tar.zst`. |
-| `make evernote-export` | Writes one `.enex` per notebook into `data/enex/` (stacks become subdirectories), with each note's GUID so links between notes work in the viewer. Overwrites the previous export. |
+| `make evernote-export` | Optional; `make refresh` already exports, archives and cleans up. Writes a permanent, uncompressed export (about 23 GB here): one `.enex` per notebook into `data/enex/` (stacks become subdirectories), with each note's GUID so links between notes work in the viewer. Overwrites the previous export. |
 
-**Viewer (systemd user service)**
+**Viewer (rootless Podman)**
 
 | Target | What it does |
 |---|---|
-| `make viewer-install` | Writes the service unit from `.env` and enables it to start on boot. Checks that `.venv` and `ENEX_DIR` exist first. Rerun it after changing `.env`. |
-| `make viewer-up` | Runs `viewer-install`, then (re)starts the viewer and prints its URL. Use it after pulling code changes or editing `.env`. |
+| `make viewer-install` | Writes the Quadlet unit from `.env` and reloads systemd, which generates `nevernote.service` (starts on boot). Refuses to install without an index (`make refresh` first). Also removes the old pre-container unit if one is present. |
+| `make viewer-up` | Builds the image (`podman build`), runs `viewer-install`, then (re)starts the viewer and prints its URL. Use it after pulling code changes or editing `.env`. |
 | `make viewer-down` | Stops the viewer. It still starts on the next boot; use `viewer-uninstall` to stop that. |
 | `make viewer-status` | Shows whether the viewer is running, with its last log lines. |
-| `make viewer-logs` | Follows the viewer's log (indexing, requests) from the journal; Ctrl-C to stop. |
-| `make viewer-uninstall` | Stops the viewer and removes the service. Leaves `data/` alone. |
+| `make viewer-logs` | Follows the viewer's log (requests) from the journal; Ctrl-C to stop. |
+| `make viewer-uninstall` | Stops the viewer, removes the Quadlet unit and the image. Leaves `data/` alone. |
 
-Keep `data/evernote/en_backup.db` and the ENEX files: they are the archive.
-Everything in `data/viewer/` is derived from them and can be deleted.
+### Where the data lives
+
+Everything is under `data/` (mode 700, gitignored):
+
+| Path | Size (this archive) | What |
+|---|---|---|
+| `data/evernote/en_backup.db` | 15 GB | **The backup**: every note, including Evernote's trash, and the login token (mode 600). |
+| `data/archive/enex-DATE.tar.zst` | ≈ 15 GB | **The full ENEX export**, compressed. An open format you can import elsewhere without this project. Exactly one, verified. |
+| `data/viewer/` | 17 GB | The viewer's index and attachment files, derived from the backup. Safe to delete; `make refresh` rebuilds it. |
+
+Keep the first two. The full ENEX export only exists uncompressed briefly,
+during `make refresh`.
+
+### Security model
+
+The steps that need your Evernote login (sync, export, index, archive) run on
+the host as you. The web-facing viewer runs separately in a container that can
+see **only** `data/viewer`, read-only. It follows the
+[OWASP Docker Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html):
+
+- a rootless engine (rule 11), so escaping the container doesn't land as root;
+- a non-root container user, mapped to you only for the read-only mount (rule 2);
+- all capabilities dropped (rule 3) and `no-new-privileges` (rule 4);
+- pids and memory limits (rule 7);
+- a read-only root filesystem and volume (rule 8);
+- a two-stage image with digest-pinned base images, and no build tools or `uv` at runtime.
+
+The viewer itself has no login: anyone on the LAN can read the archive.
 
 ## What it does
 

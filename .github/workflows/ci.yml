@@ -40,3 +40,8 @@ jobs:
       # fail the build.
       - name: make audit
         run: make audit
+
+      # The viewer's container image must keep building (make viewer-up uses
+      # rootless Podman locally; the runner has Docker).
+      - name: Build container image
+        run: docker build --tag nevernote-viewer:ci .
