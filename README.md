@@ -136,6 +136,40 @@ To build an index by hand: `uv run enex-viewer index --enex-dir â€¦ --data-dir â
 | `app.py` | API, note bodies, files |
 | `ui.py` + `templates/` + `static/app.js` | web UI; the script loads more notes as the list scrolls and opens notes in place, so the list keeps its position |
 
+## Dependency security
+
+`make audit` checks every locked dependency against known vulnerabilities:
+
+```bash
+make audit
+```
+
+- **What it checks:** all packages in `uv.lock`, in the runtime, `dev` and
+  `backup` (evernote-backup) groups. It exports the lock with hashes and runs
+  [pip-audit](https://github.com/pypa/pip-audit) against the PyPI/OSV advisory
+  databases. Nothing is installed.
+- **When it fails:** any known vulnerability makes it exit non-zero, and it
+  prints the package, the advisory ID and the fixed version. `--strict` also
+  fails if a package can't be audited.
+- **CI:** runs after `make check` on every push and pull request, so a new
+  advisory against a locked version turns the build red even when no code
+  changed.
+- **Fixing a finding:** upgrade the package (`uv lock --upgrade-package NAME`).
+  If another dependency pins the vulnerable version exactly, add an entry to
+  `override-dependencies` in `pyproject.toml` with a comment naming the CVE,
+  then check the dependent package still works.
+- **Current overrides:** evernote-backup 1.14.0 pins `thrift==0.21.0` (three
+  2026 CVEs, including a TLS host-check flaw) and `click==8.1.8`
+  (CVE-2026-7246). They are overridden to `thrift>=0.24.0` and `click>=8.3.3`.
+  thrift 0.24.0 rejects evernote-backup's bundled CA file, so the backup
+  targets pass `--use-system-ssl-ca`. Remove both once evernote-backup updates
+  its pins.
+- **Ignoring a finding** (only with a written reason, e.g. the vulnerable
+  function is never called): add `--ignore-vuln ID` to the `audit` target.
+
+Dependabot proposes dependency updates weekly (`.github/dependabot.yml`), and
+`make audit` catches anything it hasn't got to yet.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).
