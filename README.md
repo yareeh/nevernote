@@ -1,4 +1,4 @@
-# Evernote archive viewer
+# Nevernote archive viewer
 
 A read-only web viewer and JSON API for Evernote ENEX exports. It runs on
 this Linux box and you browse it from any device on the LAN. Nothing is
