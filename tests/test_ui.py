@@ -42,6 +42,13 @@ def test_home_lists_notebooks_tags_and_all_notes(client: TestClient) -> None:
     assert sorted(list_titles(doc)) == ["Pancakes", "Soup", "Tax scan"]
 
 
+def test_branding_is_nevernote(client: TestClient) -> None:
+    doc = page(client, "/")
+    assert texts(doc, "brand") == ["Nevernote archive"]
+    assert doc.findtext(".//title").endswith("· Nevernote archive")
+    assert "Evernote" not in client.get("/").text
+
+
 def test_notebook_page_lists_its_notes(client: TestClient) -> None:
     home = page(client, "/")
     [href] = home.xpath("//a[span[@class='notebook-name' and text()='Recipes']]/@href")
