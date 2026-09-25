@@ -1,5 +1,10 @@
 # Nevernote archive viewer
 
+[![CI](https://github.com/yareeh/nevernote/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/yareeh/nevernote/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](pyproject.toml)
+[![Dependabot](https://img.shields.io/badge/dependabot-enabled-brightgreen.svg?logo=dependabot)](.github/dependabot.yml)
+
 A read-only web viewer and JSON API for Evernote ENEX exports. It runs on
 this Linux box and you browse it from any device on the LAN. Nothing is
 copied to the client beyond what the browser shows.
@@ -116,7 +121,7 @@ Make targets for working on the viewer's code. They need `make setup` first.
 | Target | What it does |
 |---|---|
 | `make dev` | Runs the viewer in the foreground from the source tree, separate from the service. It uses `ENEX_DIR` (default `data/enex`), `DATA_DIR` (default `data/viewer`) and `PORT` (default 8765) from the environment, e.g. `ENEX_DIR=tmp/evernote PORT=8799 make dev`. |
-| `make check` | The full quality gate; run it before committing: `ruff format --check`, `ruff check`, `pyright` (strict) and `pytest`. The browser tests (`tests/test_browser.py`) drive the installed Google Chrome via Playwright and are skipped without it. |
+| `make check` | The full quality gate, also run by CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) on every push and pull request; run it before committing: `ruff format --check`, `ruff check`, `pyright` (strict) and `pytest`. The browser tests (`tests/test_browser.py`) drive the installed Google Chrome via Playwright and are skipped without it. |
 
 To build an index by hand: `uv run enex-viewer index --enex-dir … --data-dir …`.
 
