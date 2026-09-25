@@ -32,6 +32,40 @@ After re-exporting, run `make viewer-reindex` (or just restart the container).
 On start it rebuilds the index when the ENEX files changed. An index takes
 seconds: 632 MB of ENEX indexes in about 2 s.
 
+## Operating
+
+Make targets for running the archive: backing up Evernote and serving the
+viewer. `make` (or `make help`) lists them in the same two groups as this
+README. The viewer targets read `.env` through Docker Compose; set `ENEX_DIR`
+and `VIEWER_PORT` there.
+
+**Setup**
+
+| Target | What it does |
+|---|---|
+| `make help` | Lists the targets. It's the default when you run plain `make`. |
+| `make setup` | Runs `uv sync`: installs `evernote-backup` and the viewer with its dev tools into `.venv`. Rerun it after pulling changes to `pyproject.toml`/`uv.lock`. |
+
+**Evernote backup**, in this order
+
+| Target | What it does |
+|---|---|
+| `make evernote-init` | Creates `data/evernote/en_backup.db` and logs in to Evernote. It prints a URL to open in a browser, which works with 2FA/SSO. Run it once; `--force` on `evernote-backup init-db` starts over. |
+| `make evernote-sync` | Downloads everything new or changed from Evernote into the backup DB. The first run takes a while; after that it's incremental, so rerun it any time. |
+| `make evernote-export` | Writes one `.enex` per notebook into `data/enex/` (stacks become subdirectories), with each note's GUID so links between notes work in the viewer. Overwrites the previous export. |
+
+**Viewer (Docker)**
+
+| Target | What it does |
+|---|---|
+| `make viewer-up` | Builds the image and starts the viewer in the background, then prints its URL. The container restarts on boot. Rerun it after pulling code changes to rebuild. |
+| `make viewer-down` | Stops and removes the container. The index volume stays, so the next `viewer-up` starts without re-indexing. |
+| `make viewer-logs` | Follows the viewer's log (indexing, requests); Ctrl-C to stop. |
+| `make viewer-reindex` | Restarts the viewer, which re-indexes if the ENEX files changed. Use it after `evernote-export`. |
+
+Keep `data/evernote/en_backup.db` and the ENEX files: they are the archive.
+Everything under the Docker volume is derived from them.
+
 ## What it does
 
 - **Notebooks and stacks:** one `.enex` file is one notebook, and a
@@ -72,11 +106,14 @@ Interactive docs at `/api/docs`.
 
 ## Development
 
-```bash
-make check                                   # ruff format/lint, pyright (strict), pytest
-ENEX_DIR=tmp/evernote PORT=8799 make dev     # run without Docker
-uv run enex-viewer index --enex-dir … --data-dir …
-```
+Make targets for working on the viewer's code. They need `make setup` first.
+
+| Target | What it does |
+|---|---|
+| `make dev` | Runs the viewer from the source tree without Docker. It uses `ENEX_DIR` (default `data/enex`), `DATA_DIR` (default `data/viewer`) and `PORT` (default 8765) from the environment, e.g. `ENEX_DIR=tmp/evernote PORT=8799 make dev`. |
+| `make check` | The full quality gate; run it before committing: `ruff format --check`, `ruff check`, `pyright` (strict) and `pytest`. |
+
+To build an index by hand: `uv run enex-viewer index --enex-dir … --data-dir …`.
 
 | Module | |
 |---|---|
@@ -87,9 +124,6 @@ uv run enex-viewer index --enex-dir … --data-dir …
 | `store.py` | read-only queries (Pydantic models) |
 | `app.py` | API, note bodies, files |
 | `ui.py` + `templates/` | web UI |
-
-Keep `data/evernote/en_backup.db` and the ENEX files: they are the archive.
-Everything under the Docker volume is derived from them.
 
 ## License
 
