@@ -26,8 +26,9 @@ setup: ## install evernote-backup and the viewer's dev environment (uv)
 	uv sync
 
 evernote-init: ## log in to Evernote (OAuth URL is printed) and create the backup DB
-	mkdir -p data/evernote
+	mkdir -p data/evernote && chmod 700 data  # the archive is private
 	$(EB) init-db --use-system-ssl-ca -d $(DB)
+	chmod 600 $(DB)  # holds the Evernote login token
 evernote-sync: ## download/refresh everything from Evernote into the backup DB
 	$(EB) sync --use-system-ssl-ca -d $(DB)
 evernote-export: ## write one .enex per notebook (with note GUIDs) into data/enex/
