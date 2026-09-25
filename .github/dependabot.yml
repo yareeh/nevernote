@@ -6,6 +6,11 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # Only propose releases that have been public for 7 days, so compromised
+    # releases (e.g. the 2026 PyPI worm/poisoning incidents) are usually
+    # caught and yanked first. Security updates are not delayed.
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     groups:
       python-minor-and-patch:
@@ -17,6 +22,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns: ["*"]

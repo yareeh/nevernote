@@ -167,8 +167,9 @@ make audit
 - **Ignoring a finding** (only with a written reason, e.g. the vulnerable
   function is never called): add `--ignore-vuln ID` to the `audit` target.
 
-Dependabot proposes dependency updates weekly (`.github/dependabot.yml`), and
-`make audit` catches anything it hasn't got to yet.
+Dependabot proposes dependency updates weekly (`.github/dependabot.yml`), only
+for releases at least 7 days old; security updates are not delayed. Meanwhile
+`make audit` catches anything Dependabot hasn't got to yet.
 
 ## License
 
