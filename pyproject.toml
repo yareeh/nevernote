@@ -1,11 +1,55 @@
 [project]
-name = "my-joplin"
+name = "enex-viewer"
 version = "0.1.0"
-description = "Evernote backup"
+description = "Read-only web viewer and API for Evernote ENEX exports"
 requires-python = ">=3.12"
 dependencies = [
+    "lxml>=6.1.3",
+    "nh3>=0.3.7",
+]
+
+[project.scripts]
+enex-viewer = "enex_viewer.cli:main"
+
+[dependency-groups]
+dev = [
+    "lxml-stubs>=0.5.1",
+    "pyright>=1.1.414",
+    "pytest>=9.1.1",
+    "ruff>=0.16.9",
+]
+backup = [
     "evernote-backup==1.14.0",
 ]
 
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/enex_viewer"]
+
 [tool.uv]
-package = false
+default-groups = ["dev", "backup"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "C4", "SIM"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["enex_viewer", "enexgen"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pyright]
+typeCheckingMode = "strict"
+include = ["src", "tests"]
+extraPaths = ["tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]
