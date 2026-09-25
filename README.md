@@ -122,6 +122,7 @@ Make targets for working on the viewer's code. They need `make setup` first.
 |---|---|
 | `make dev` | Runs the viewer in the foreground from the source tree, separate from the service. It uses `ENEX_DIR` (default `data/enex`), `DATA_DIR` (default `data/viewer`) and `PORT` (default 8765) from the environment, e.g. `ENEX_DIR=tmp/evernote PORT=8799 make dev`. |
 | `make check` | The full quality gate, also run by CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) on every push and pull request; run it before committing: `ruff format --check`, `ruff check`, `pyright` (strict) and `pytest`. The browser tests (`tests/test_browser.py`) drive the installed Google Chrome via Playwright and are skipped without it. |
+| `make audit` | Fails if any locked dependency (runtime, dev or backup group) has a known vulnerability, using `pip-audit` against the hashed lock export. CI runs it after `make check`; evernote-backup's own vulnerable pins are overridden in `pyproject.toml`. |
 
 To build an index by hand: `uv run enex-viewer index --enex-dir … --data-dir …`.
 

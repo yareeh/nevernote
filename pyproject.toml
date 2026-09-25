@@ -20,6 +20,7 @@ enex-viewer = "enex_viewer.cli:main"
 dev = [
     "httpx2>=2.13.1",
     "lxml-stubs>=0.5.1",
+    "pip-audit==2.10.1",
     "playwright>=1.63.0",
     "pyright>=1.1.414",
     "pytest>=9.1.1",

@@ -12,7 +12,7 @@ UNIT := nevernote.service
 
 .PHONY: help setup evernote-init evernote-sync evernote-export \
         viewer-install viewer-up viewer-down viewer-status viewer-logs \
-        viewer-reindex viewer-uninstall dev check
+        viewer-reindex viewer-uninstall dev check audit
 
 ##@ Operating
 
@@ -61,3 +61,7 @@ check: ## lint, type-check and test
 	uv run ruff check .
 	uv run pyright
 	uv run pytest -q
+
+audit: ## fail on known vulnerabilities in any locked dependency (pip-audit)
+	uv export --color never --frozen --all-groups --no-emit-project --format requirements-txt \
+	    | uv run pip-audit --disable-pip --require-hashes --strict -r /dev/stdin

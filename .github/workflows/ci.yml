@@ -36,3 +36,7 @@ jobs:
       - name: make check
         run: make check
 
+      # Known CVEs in any locked dependency (runtime, dev and backup groups)
+      # fail the build.
+      - name: make audit
+        run: make audit
