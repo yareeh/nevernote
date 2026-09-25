@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ status }}{% endblock %}
+{% block main %}
+<div class="error-page">
+  <h1>{{ "Not found" if status == 404 else "Something's not right" }}</h1>
+  <p>{{ message }}</p>
+  {% if status == 503 %}
+  <p>Build it with <code>enex-viewer index</code> (or <code>make index</code>), then reload.</p>
+  {% endif %}
+  <p><a href="/">← All notes</a></p>
+</div>
+{% endblock %}

@@ -5,6 +5,7 @@ description = "Read-only web viewer and API for Evernote ENEX exports"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.141.1",
+    "jinja2>=3.1.6",
     "lxml>=6.1.3",
     "nh3>=0.3.7",
     "uvicorn>=0.53.0",

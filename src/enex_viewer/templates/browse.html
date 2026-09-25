@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}{{ note.title if note else list.heading }}{% endblock %}
+{% block body_class %}{{ "has-note" if note else "no-note" }}{% endblock %}
+{% block main %}
+<div class="layout">
+  <nav class="sidebar" aria-label="Notebooks and tags">
+    <a class="nav-item{{ ' active' if list.kind == 'all' and not note }}" href="/">
+      <span>All notes</span><span class="count">{{ total_notes }}</span>
+    </a>
+    <h2 class="section">Notebooks</h2>
+    {% for stack, notebooks in notebook_groups %}
+      {% if stack %}<div class="stack-name">{{ stack }}</div>{% endif %}
+      {% for nb in notebooks %}
+      <a class="nav-item{{ ' in-stack' if stack }}{{ ' active' if nb.id == active_notebook }}"
+         href="/notebooks/{{ nb.id }}"><span class="notebook-name">{{ nb.name }}</span><span class="count">{{ nb.note_count }}</span></a>
+      {% endfor %}
+    {% endfor %}
+    {% if tags %}
+    <h2 class="section">Tags</h2>
+    <div class="tag-cloud">
+      {% for t in tags %}
+      <a class="chip{{ ' active' if t.name == active_tag }}" href="/tags/{{ t.name | q }}"><span class="tag-name">{{ t.name }}</span> <span class="count">{{ t.count }}</span></a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </nav>
+
+  <section class="list" aria-label="Notes">
+    <div class="list-head">
+      <h1 class="list-heading">{{ list.heading }}</h1>
+      <p class="list-meta">{{ list.total }} note{{ "" if list.total == 1 else "s" }}</p>
+    </div>
+    {% if list.items %}
+    <ol class="notes">
+      {% for item in list.items %}
+      <li class="{{ 'current' if note and item.id == note.id }}">
+        <a class="note-link" href="{{ list.note_url(item.id) }}"{{ ' aria-current="page"' | safe if note and item.id == note.id }}>
+          <span class="note-title">{{ item.title }}</span>
+          <span class="note-date">{{ (item.updated or item.created) | date }}</span>
+          {% if item.snippet_html %}<span class="snippet">{{ item.snippet_html | safe }}</span>{% endif %}
+        </a>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="empty-list">{{ "No notes match." if list.kind == "search" else "No notes here." }}</p>
+    {% endif %}
+    {% if list.prev_url or list.next_url %}
+    <div class="pager">
+      {% if list.prev_url %}<a class="page-prev" href="{{ list.prev_url }}">← Newer</a>{% else %}<span></span>{% endif %}
+      <span class="page-pos">{{ list.offset + 1 }}–{{ [list.offset + list.page_size, list.total] | min }}</span>
+      {% if list.next_url %}<a class="page-next" href="{{ list.next_url }}">Older →</a>{% else %}<span></span>{% endif %}
+    </div>
+    {% endif %}
+  </section>
+
+  <main class="note">
+    {% if note %}
+    <a class="back" href="{{ list.page_url(list.offset) }}">← {{ list.heading }}</a>
+    <header class="note-head">
+      <h1 class="note-heading">{{ note.title }}</h1>
+      <p class="note-meta">
+        <a href="/notebooks/{{ note.notebook.id }}">{% if note.notebook.stack %}{{ note.notebook.stack }} / {% endif %}{{ note.notebook.name }}</a>
+        {% if note.created %}<span>Created {{ note.created | date(true) }}</span>{% endif %}
+        {% if note.updated and note.updated != note.created %}<span>Updated {{ note.updated | date(true) }}</span>{% endif %}
+        {% if note.author %}<span>{{ note.author }}</span>{% endif %}
+        {% if note.source_url %}<a class="source" href="{{ note.source_url }}" target="_blank" rel="noopener noreferrer">{{ note.source_url | host }} ↗</a>{% endif %}
+      </p>
+      {% if note.tags %}
+      <p class="note-tags">{% for t in note.tags %}<a class="chip note-tag" href="/tags/{{ t | q }}">{{ t }}</a>{% endfor %}</p>
+      {% endif %}
+      {% if note.attachments %}
+      <details class="attachments">
+        <summary>{{ note.attachments | length }} attachment{{ "" if note.attachments | length == 1 else "s" }}</summary>
+        <ul>
+          {% for a in note.attachments %}
+          <li><a class="attachment-link" href="{{ a.url }}" target="_blank" rel="noopener">{{ a.filename or a.mime }}</a> <span class="count">{{ a.size | size }}</span></li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+    </header>
+    <iframe class="note-frame" src="{{ note.content_url }}" title="{{ note.title }}"
+            sandbox="allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
+            referrerpolicy="no-referrer"></iframe>
+    {% else %}
+    <div class="placeholder">Select a note</div>
+    {% endif %}
+  </main>
+</div>
+{% endblock %}

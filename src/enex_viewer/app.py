@@ -19,6 +19,7 @@ from enex_viewer.store import (
     Tag,
     file_url,
 )
+from enex_viewer.ui import install_ui
 
 _MD5 = re.compile(r"^[0-9a-f]{32}$")
 
@@ -89,7 +90,7 @@ def get_store(request: Request) -> Iterator[Store]:
 StoreDep = Annotated[Store, Depends(get_store)]
 
 
-def create_app(data_dir: Path) -> FastAPI:
+def create_app(data_dir: Path, *, page_size: int = 100) -> FastAPI:
     app = FastAPI(title="ENEX viewer", docs_url="/api/docs", redoc_url=None)
     db_path = data_dir / INDEX_NAME
 
@@ -182,4 +183,5 @@ def create_app(data_dir: Path) -> FastAPI:
     def named_file(md5: str, name: str, store: StoreDep) -> FileResponse:
         return serve_file(md5, name, store)
 
+    install_ui(app, page_size=page_size)
     return app

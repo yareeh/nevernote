@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}Notes{% endblock %} · Evernote archive</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <header class="topbar">
+    <a class="brand" href="/">Evernote archive</a>
+    <form class="search" action="/search" role="search">
+      <input type="search" name="q" value="{{ q }}" placeholder="Search notes"
+             aria-label="Search notes" autocomplete="off">
+    </form>
+  </header>
+  {% block main %}{% endblock %}
+</body>
+</html>
