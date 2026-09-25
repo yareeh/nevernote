@@ -1,0 +1,17 @@
+name: enex-viewer
+
+services:
+  viewer:
+    build: .
+    image: enex-viewer:local
+    restart: unless-stopped
+    ports:
+      # All interfaces of this box; reachable on the LAN, not from the
+      # internet unless the router forwards the port. No login.
+      - "${VIEWER_PORT:-8765}:8765"
+    volumes:
+      - ${ENEX_DIR:-./data/enex}:/enex:ro
+      - index:/data  # derived: rebuilt from the ENEX files when they change
+
+volumes:
+  index:
