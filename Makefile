@@ -19,5 +19,5 @@ evernote-init: ## log in to Evernote (OAuth URL is printed) and create the backu
 	$(EB) init-db -d $(DB)
 evernote-sync: ## download/refresh everything from Evernote into the backup DB
 	$(EB) sync -d $(DB)
-evernote-export: ## write one .enex per notebook into data/enex/
-	$(EB) export -d $(DB) --overwrite data/enex/
+evernote-export: ## write one .enex per notebook (with note GUIDs) into data/enex/
+	$(EB) export -d $(DB) --add-guid --overwrite data/enex/
