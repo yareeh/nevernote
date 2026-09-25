@@ -12,6 +12,12 @@
   {% if note.tags %}
   <p class="note-tags">{% for t in note.tags %}<a class="chip note-tag" href="/tags/{{ t | q }}">{{ t }}</a>{% endfor %}</p>
   {% endif %}
+  {% if note.external_images %}
+  <p class="note-actions">
+    <a class="load-images" href="{{ note.content_url }}?images=1" target="note-frame"
+       title="Fetches images from other websites; they can see that you viewed this note">Load external images ({{ note.external_images | length }})</a>
+  </p>
+  {% endif %}
   {% if note.attachments %}
   <details class="attachments">
     <summary>{{ note.attachments | length }} attachment{{ "" if note.attachments | length == 1 else "s" }}</summary>
@@ -23,7 +29,7 @@
   </details>
   {% endif %}
 </header>
-<iframe class="note-frame" src="{{ note.content_url }}" title="{{ note.title }}"
+<iframe class="note-frame" name="note-frame" src="{{ note.content_url }}" title="{{ note.title }}"
         sandbox="allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
         referrerpolicy="no-referrer"></iframe>
 {% else %}

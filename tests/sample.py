@@ -32,7 +32,8 @@ def build_sample(tmp_path: Path) -> Path:
         ),
         note(
             "Soup",
-            "<div>leeks and potatoes</div>",
+            "<div>leeks and potatoes</div>"
+            '<img src="https://images.example.com/soup.jpg"/>',
             guid=G2,
             tags=["food"],
             updated="20240401T100000Z",

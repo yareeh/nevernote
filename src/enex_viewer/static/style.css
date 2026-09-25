@@ -167,6 +167,17 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; }
   font-size: 13px;
 }
 .note-tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 0; }
+.note-actions { margin: 8px 0 0; }
+.load-images {
+  display: inline-block;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+}
+.load-images:hover { background: var(--bg-hover); text-decoration: none; }
 .attachments { margin-top: 8px; font-size: 13px; }
 .attachments summary { cursor: pointer; color: var(--fg-muted); }
 .attachments ul { margin: 6px 0 0; padding-left: 18px; }

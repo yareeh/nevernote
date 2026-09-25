@@ -9,7 +9,7 @@ from urllib.parse import quote
 
 from pydantic import BaseModel
 
-from enex_viewer.render import Attachment
+from enex_viewer.render import Attachment, external_images
 
 _TERM = re.compile(r"\w+", re.UNICODE)
 _MARK_OPEN, _MARK_CLOSE = "\x02", "\x03"
@@ -66,6 +66,7 @@ class NoteDetail(BaseModel):
     source_url: str | None
     tags: list[str]
     attachments: list[AttachmentInfo]
+    external_images: list[str]
     content_url: str
 
 
@@ -197,8 +198,8 @@ class Store:
 
     def note(self, note_id: str) -> NoteDetail | None:
         row = self._one(
-            "SELECT id, guid, title, notebook_id, created, updated, author, source_url"
-            " FROM notes WHERE id = ?",
+            "SELECT id, guid, title, notebook_id, created, updated, author, source_url,"
+            " content FROM notes WHERE id = ?",
             note_id,
         )
         if row is None:
@@ -234,6 +235,7 @@ class Store:
             source_url=row["source_url"],
             tags=tags,
             attachments=attachments,
+            external_images=external_images(row["content"], row["source_url"]),
             content_url=f"/notes/{row['id']}/content",
         )
 

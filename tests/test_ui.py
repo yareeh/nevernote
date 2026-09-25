@@ -201,3 +201,13 @@ def test_note_fragment(client: TestClient) -> None:
     assert back.get("href") == "/search?q=flour"
     assert frag.findall(".//iframe")
     assert client.get("/ui/note/nope").status_code == 404
+
+
+def test_load_external_images_button(client: TestClient) -> None:
+    doc = page(client, f"/notes/{G2}")
+    [button] = doc.find_class("load-images")
+    assert button.get("href") == f"/notes/{G2}/content?images=1"
+    [frame] = doc.iter("iframe")
+    assert button.get("target") == frame.get("name")  # loads into the note frame
+    assert "(1)" in button.text_content()
+    assert not page(client, f"/notes/{G1}").find_class("load-images")

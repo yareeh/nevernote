@@ -3,7 +3,7 @@ from urllib.parse import unquote
 import pytest
 from lxml import html as lxml_html
 
-from enex_viewer.render import Attachment, note_link_guid, render
+from enex_viewer.render import Attachment, external_images, note_link_guid, render
 
 IMG = Attachment(hash="a" * 32, mime="image/png", filename="dot.png", size=68)
 PDF = Attachment(hash="b" * 32, mime="application/pdf", filename="form.pdf", size=2048)
@@ -32,12 +32,14 @@ def do(
     attachments: list[Attachment] | None = None,
     source_url: str | None = None,
     note_style: str = "",
+    load_external: bool = False,
 ) -> lxml_html.HtmlElement:
     out = render(
         enml(body, note_style),
         attachments=attachments or [],
         resolve_guid=lambda g: g if g == G2 else None,
         source_url=source_url,
+        load_external=load_external,
     )
     return lxml_html.fragment_fromstring(out, create_parent="div")
 
@@ -117,10 +119,11 @@ def test_active_content_is_removed() -> None:
         assert needle not in out
 
 
-def test_remote_images_and_styles_are_kept() -> None:
+def test_remote_images_and_styles_are_kept_when_loading_external() -> None:
     doc = do(
         '<div style="color: red"><img src="https://example.com/x.png"/></div>',
         note_style="font-size: 14px",
+        load_external=True,
     )
     assert doc.findall(".//img")[0].get("src") == "https://example.com/x.png"
     assert doc.find(".//div[@style='color: red']") is not None
@@ -171,8 +174,10 @@ def test_relative_urls_resolve_against_source_url() -> None:
     doc = do(
         '<a href="/docs/page">rel</a><img src="img/p.png"/><a href="#top">anchor</a>',
         source_url="https://example.com/blog/post",
+        load_external=True,
     )
-    rel, anchor = doc.findall(".//a")
+    body_links = doc.xpath(".//a[not(ancestor::*[@class='en-external-images'])]")
+    rel, anchor = body_links
     assert rel.get("href") == "https://example.com/docs/page"
     assert doc.findall(".//img")[0].get("src") == "https://example.com/blog/img/p.png"
     assert anchor.get("href") == "#top"
@@ -189,3 +194,44 @@ def test_note_link_guid() -> None:
     assert note_link_guid(f"https://www.evernote.com/shard/s9/nl/1/{G2}") == G2
     assert note_link_guid(f"https://example.com/{G2}") is None
     assert note_link_guid("https://www.evernote.com/") is None
+
+
+EXT = '<p><img src="https://a.example/1.png"/><img src="http://b.example/2.gif"/></p>'
+
+
+def test_external_images_are_blocked_by_default() -> None:
+    doc = do(EXT + f'<en-media hash="{IMG.hash}" type="image/png"/>', [IMG])
+    srcs = [img.get("src") for img in doc.findall(".//img")]
+    assert srcs == [f"/files/{IMG.hash}"]  # the local attachment still shows
+    assert len(doc.find_class("en-external-blocked")) == 2
+
+
+def test_external_images_are_listed_at_the_end() -> None:
+    for load in (False, True):
+        doc = do(EXT, load_external=load)
+        [section] = doc.find_class("en-external-images")
+        hrefs = [a.get("href") for a in section.findall(".//a")]
+        assert hrefs == ["https://a.example/1.png", "http://b.example/2.gif"]
+        assert doc[0][-1] is section  # last thing in the note
+
+
+def test_loading_external_images_keeps_them() -> None:
+    doc = do(EXT, load_external=True)
+    srcs = [img.get("src") for img in doc.findall(".//img")]
+    assert srcs == ["https://a.example/1.png", "http://b.example/2.gif"]
+    assert not doc.find_class("en-external-blocked")
+
+
+def test_inline_and_attached_images_are_not_external() -> None:
+    svg = "data:image/svg+xml,%3csvg/%3e"
+    doc = do(f'<img src="{svg}"/><en-media hash="{IMG.hash}" type="image/png"/>', [IMG])
+    assert not doc.find_class("en-external-images")
+    assert external_images(enml(f'<img src="{svg}"/>'), None) == []
+
+
+def test_external_images_are_deduplicated_and_resolved() -> None:
+    body = '<img src="/a.png"/><img src="https://x.example/b.png"/><img src="/a.png"/>'
+    assert external_images(enml(body), "https://x.example/post") == [
+        "https://x.example/a.png",
+        "https://x.example/b.png",
+    ]

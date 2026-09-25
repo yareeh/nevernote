@@ -87,6 +87,23 @@ def note_link_guid(href: str) -> str | None:
     return m.group(0).lower() if m else None
 
 
+def _is_external(url: str) -> bool:
+    return urlsplit(url).scheme in ("http", "https")
+
+
+def external_images(enml: str, source_url: str | None) -> list[str]:
+    """Absolute http(s) URLs of the note's remote images, in order, once each.
+
+    Attachments (<en-media>) and inline data: images are not external.
+    """
+    urls: list[str] = []
+    for img in parse(enml).iter("img"):
+        src = _absolute(img.get("src") or "", source_url)
+        if src and _is_external(src) and src not in urls:
+            urls.append(src)
+    return urls
+
+
 def human_size(size: int) -> str:
     value = float(size)
     for unit in ("B", "KB", "MB", "GB"):
@@ -145,9 +162,14 @@ def render(
     source_url: str | None = None,
     file_url: Callable[[str], str] = lambda h: f"/files/{h}",
     note_url: Callable[[str], str] = lambda i: f"/notes/{i}",
+    load_external: bool = False,
 ) -> str:
+    """Safe HTML for a note. External (http/https) images are replaced by a
+    placeholder unless load_external is set; either way they are listed at the
+    end of the note."""
     root = parse(enml)
     by_hash = {a.hash.lower(): a for a in attachments}
+    external: list[str] = []
     used: set[str] = set()
 
     for el in list(root.iter("en-media", "en-todo", "en-crypt", "a", "img")):
@@ -178,8 +200,17 @@ def render(
             src = _absolute(el.get("src") or "", source_url)
             if src is None or _only_image_data_urls("img", "src", src) is None:
                 _swap(el, etree.Element("span"))
-            else:
-                el.set("src", src)
+                continue
+            if _is_external(src):
+                if src not in external:
+                    external.append(src)
+                if not load_external:
+                    blocked = etree.Element("span", title=src)
+                    blocked.set("class", "en-external-blocked")
+                    blocked.text = "🖼 external image"
+                    _swap(el, blocked)
+                    continue
+            el.set("src", src)
 
     style = root.get("style")
     root.tag = "div"
@@ -196,6 +227,16 @@ def render(
         items = etree.SubElement(section, "ul")
         for att in unused:
             etree.SubElement(items, "li").append(_media(att, file_url(att.hash), None))
+
+    if external:
+        section = etree.SubElement(root, "div")
+        section.set("class", "en-external-images")
+        etree.SubElement(section, "h4").text = "External images"
+        items = etree.SubElement(section, "ul")
+        for url in external:
+            link = etree.SubElement(etree.SubElement(items, "li"), "a", href=url)
+            link.set("target", "_blank")
+            link.text = url
 
     html = etree.tostring(root, method="html", encoding="unicode")
     return nh3.clean(

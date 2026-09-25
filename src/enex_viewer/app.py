@@ -36,24 +36,30 @@ _SANDBOX_FILE_CSP = (
     "sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'"
 )
 
-# Note bodies are standalone documents shown in an <iframe>. No script can run,
-# remote images/fonts are allowed, links may open new tabs or (on click)
-# navigate the viewer to another note.
-_NOTE_CSP = "; ".join(
-    [
-        "default-src 'none'",
-        "script-src 'none'",
-        "img-src * data:",
-        "media-src *",
-        "font-src * data:",
-        "style-src 'unsafe-inline'",
-        "base-uri 'none'",
-        "form-action 'none'",
-        "frame-ancestors 'self'",
-        "sandbox allow-popups allow-popups-to-escape-sandbox"
-        " allow-top-navigation-by-user-activation",
-    ]
-)
+# Note bodies are standalone documents shown in an <iframe>. No script can run;
+# links may open new tabs or (on click) navigate the viewer to another note.
+# External images are fetched only when asked for (?images=1): the renderer
+# swaps them for placeholders, and img-src also blocks remote CSS backgrounds.
+
+
+def _note_csp(load_external: bool) -> str:
+    return "; ".join(
+        [
+            "default-src 'none'",
+            "script-src 'none'",
+            "img-src * data:" if load_external else "img-src 'self' data:",
+            "media-src 'self'",
+            "font-src data:",
+            "style-src 'unsafe-inline'",
+            "base-uri 'none'",
+            "form-action 'none'",
+            "frame-ancestors 'self'",
+            "sandbox allow-popups allow-popups-to-escape-sandbox"
+            " allow-top-navigation-by-user-activation",
+        ]
+    )
+
+
 _NOTE_CSS = """
 html { background: #fff; color: #1f2328; }
 body { margin: 0; padding: 20px 24px 48px; font: 15px/1.6 -apple-system,
@@ -70,6 +76,12 @@ a { color: #0969da; }
 .en-size { color: #59636e; }
 .en-attachments { margin-top: 32px; border-top: 1px solid #d0d7de; }
 .en-attachments ul { list-style: none; padding: 0; }
+.en-external-blocked { display: inline-block; padding: 2px 8px;
+  border: 1px dashed #d0d7de; border-radius: 6px; color: #59636e; font-size: 13px; }
+.en-external-images { margin-top: 32px; border-top: 1px solid #d0d7de;
+  font-size: 13px; }
+.en-external-images ul { padding-left: 18px; }
+.en-external-images li { overflow-wrap: anywhere; }
 .en-missing, .en-crypt { color: #9a6700; font-style: italic; }
 .en-link-unresolved { text-decoration: underline dotted; cursor: help; }
 """
@@ -129,7 +141,9 @@ def create_app(data_dir: Path, *, page_size: int = 100) -> FastAPI:
         return detail
 
     @app.get("/notes/{note_id}/content", response_class=HTMLResponse)
-    def note_content(note_id: str, store: StoreDep) -> HTMLResponse:
+    def note_content(
+        note_id: str, store: StoreDep, images: bool = False
+    ) -> HTMLResponse:
         source = store.note_source(note_id)
         if source is None:
             raise HTTPException(404, "No such note")
@@ -142,6 +156,7 @@ def create_app(data_dir: Path, *, page_size: int = 100) -> FastAPI:
             resolve_guid=store.resolve_guid,
             source_url=source_url,
             file_url=lambda h: file_url(h, names.get(h)),
+            load_external=images,
         )
         page = (
             '<!doctype html><html><head><meta charset="utf-8">'
@@ -151,7 +166,7 @@ def create_app(data_dir: Path, *, page_size: int = 100) -> FastAPI:
         return HTMLResponse(
             page,
             headers={
-                "Content-Security-Policy": _NOTE_CSP,
+                "Content-Security-Policy": _note_csp(images),
                 "Referrer-Policy": "no-referrer",
                 "X-Content-Type-Options": "nosniff",
             },

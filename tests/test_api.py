@@ -130,3 +130,24 @@ def test_healthz(client: TestClient) -> None:
     body = client.get("/healthz").json()
     assert body["notes"] == 3
     assert body["built_at"]
+
+
+def test_external_images_are_blocked_until_asked_for(client: TestClient) -> None:
+    detail = client.get(f"/api/notes/{G2}").json()
+    assert detail["external_images"] == ["https://images.example.com/soup.jpg"]
+    assert detail["content_url"] == f"/notes/{G2}/content"
+
+    blocked = client.get(f"/notes/{G2}/content")
+    assert 'src="https://images.example.com' not in blocked.text
+    assert "https://images.example.com/soup.jpg" in blocked.text  # listed
+    csp = blocked.headers["content-security-policy"]
+    assert "img-src 'self' data:" in csp
+    assert "img-src *" not in csp
+
+    loaded = client.get(f"/notes/{G2}/content?images=1")
+    assert 'src="https://images.example.com/soup.jpg"' in loaded.text
+    assert "img-src * data:" in loaded.headers["content-security-policy"]
+
+
+def test_notes_without_external_images_list_none(client: TestClient) -> None:
+    assert client.get(f"/api/notes/{G1}").json()["external_images"] == []
