@@ -61,3 +61,35 @@ def test_missing_enex_dir_fails(
     )
     assert code == 2
     assert "not a directory" in capsys.readouterr().err
+
+
+def test_serve_no_index_serves_existing_index_without_enex(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = FakeUvicorn()
+    monkeypatch.setattr("enex_viewer.cli.uvicorn_run", fake)
+    enex = tmp_path / "enex"
+    write(enex / "Inbox.enex", note("A"))
+    data = tmp_path / "data"
+    assert main(["index", "--enex-dir", str(enex), "--data-dir", str(data)]) == 0
+    built = (data / "index.sqlite").stat().st_mtime_ns
+    write(enex / "Inbox.enex", note("A"), note("B"))  # index is now stale
+    missing = tmp_path / "no-such-dir"
+    assert (
+        main(
+            ["serve", "--no-index", "--enex-dir", str(missing), "--data-dir", str(data)]
+        )
+        == 0
+    )
+    assert (data / "index.sqlite").stat().st_mtime_ns == built
+    assert len(fake.calls) == 1
+
+
+def test_serve_no_index_fails_without_index(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake = FakeUvicorn()
+    monkeypatch.setattr("enex_viewer.cli.uvicorn_run", fake)
+    assert main(["serve", "--no-index", "--data-dir", str(tmp_path)]) == 2
+    assert "no index" in capsys.readouterr().err
+    assert fake.calls == []

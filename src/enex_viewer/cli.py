@@ -10,7 +10,7 @@ from pathlib import Path
 from uvicorn import run as uvicorn_run
 
 from enex_viewer.app import create_app
-from enex_viewer.index import build_index, index_is_stale
+from enex_viewer.index import INDEX_NAME, build_index, index_is_stale
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +37,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     serve.add_argument("--host", default=os.environ.get("HOST", "0.0.0.0"))
     serve.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8765")))
+    serve.add_argument(
+        "--no-index",
+        action="store_true",
+        help="serve the existing index as is; never read ENEX files or write DATA_DIR "
+        "(for a read-only container)",
+    )
     return parser
 
 
@@ -66,6 +72,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     enex_dir: Path = args.enex_dir
     data_dir: Path = args.data_dir
+    if args.command == "serve" and args.no_index:
+        if not (data_dir / INDEX_NAME).is_file():
+            print(
+                f"error: no index in {data_dir}; build it with `enex-viewer index`",
+                file=sys.stderr,
+            )
+            return 2
+        uvicorn_run(create_app(data_dir), host=args.host, port=args.port)
+        return 0
     if not enex_dir.is_dir():
         print(f"error: {enex_dir} is not a directory", file=sys.stderr)
         return 2
