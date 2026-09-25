@@ -3,6 +3,8 @@ name = "enex-viewer"
 version = "0.1.0"
 description = "Read-only web viewer and API for Evernote ENEX exports"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "fastapi>=0.141.1",
     "jinja2>=3.1.6",

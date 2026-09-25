@@ -90,3 +90,7 @@ uv run enex-viewer index --enex-dir … --data-dir …
 
 Keep `data/evernote/en_backup.db` and the ENEX files: they are the archive.
 Everything under the Docker volume is derived from them.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
