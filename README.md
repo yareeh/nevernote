@@ -1,13 +1,18 @@
-# Nevernote archive viewer
+<p align="center"><img src="src/enex_viewer/static/nevernote.png" alt="nevernote" width="351"></p>
+
+# Evernote archive viewer
 
 [![CI](https://github.com/yareeh/nevernote/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/yareeh/nevernote/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](pyproject.toml)
 [![Dependabot](https://img.shields.io/badge/dependabot-enabled-brightgreen.svg?logo=dependabot)](.github/dependabot.yml)
 
-A read-only web viewer and JSON API for Evernote ENEX exports. It runs on
-this Linux box and you browse it from any device on the LAN. Nothing is
-copied to the client beyond what the browser shows.
+A read-only web viewer and JSON API for Evernote ENEX exports. Back up your
+Evernote account, keep it as a compressed ENEX archive, and browse and search
+every note, notebook and attachment in a browser, served from your own
+machine by a locked-down container.
+
+![nevernote: notebooks, the note list and a web-clipped note](docs/screenshot.png)
 
 ```
 Evernote ──evernote-backup sync──► data/evernote/en_backup.db        (the backup; holds the login token)
