@@ -91,7 +91,11 @@ class Store:
     def __init__(self, db_path: Path) -> None:
         if not db_path.exists():
             raise IndexMissingError(str(db_path))
-        self.conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        # One Store per request, used by one thread at a time, but FastAPI may
+        # open it (dependency) and use it (endpoint) in different threads.
+        self.conn = sqlite3.connect(
+            f"file:{db_path}?mode=ro", uri=True, check_same_thread=False
+        )
         self.conn.row_factory = sqlite3.Row
 
     def close(self) -> None:
