@@ -139,14 +139,16 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; }
   overflow-wrap: anywhere;
 }
 .empty-list { padding: 16px; color: var(--fg-muted); }
-.pager {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.page-prev,
+.load-more a {
+  display: block;
   padding: 12px 16px;
   color: var(--fg-muted);
-  font-size: 12px;
+  font-size: 13px;
+  text-align: center;
 }
+.page-prev { border-bottom: 1px solid var(--border); }
+.notes li.load-more { border-bottom: 0; }
 
 /* Note */
 .note { display: flex; flex-direction: column; }

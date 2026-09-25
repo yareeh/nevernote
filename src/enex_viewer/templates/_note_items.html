@@ -1,0 +1,13 @@
+{% for item in list.items %}
+<li{{ ' class="current"' | safe if note and item.id == note.id }}>
+  <a class="note-link" data-id="{{ item.id }}" href="{{ list.note_url(item.id) }}"{{ ' aria-current="page"' | safe if note and item.id == note.id }}>
+    <span class="note-title">{{ item.title }}</span>
+    <span class="note-date">{{ (item.updated or item.created) | date }}</span>
+    {% if item.snippet_html %}<span class="snippet">{{ item.snippet_html | safe }}</span>{% endif %}
+  </a>
+</li>
+{% endfor %}
+{% if list.more_url %}
+{# app.js loads data-next when this scrolls into view; without JS it's a link to the next page. #}
+<li class="load-more" data-next="{{ list.more_url }}"><a class="page-next" href="{{ list.next_url }}">More notes ↓</a></li>
+{% endif %}

@@ -66,6 +66,14 @@ class NoteList:
             return None
         return self.page_url(self.offset + self.page_size)
 
+    @property
+    def more_url(self) -> str | None:
+        """Fragment with the next batch of list items (infinite scroll)."""
+        if self.offset + self.page_size >= self.total:
+            return None
+        ctx = {**self.context, "offset": str(self.offset + self.page_size)}
+        return f"/ui/items?{urlencode(ctx)}"
+
 
 def _date(value: str | None, with_time: bool = False) -> str:
     if not value:
@@ -217,6 +225,24 @@ def install_ui(app: FastAPI, *, page_size: int) -> None:
         finally:
             store.close()
 
+    def note_context(
+        store: Store,
+        note_id: str,
+        request: Request,
+        q: str | None,
+        tag: str | None,
+        notebook: str | None,
+        offset: int,
+    ) -> tuple[NoteDetail, NoteList]:
+        note = store.note(note_id)
+        if note is None:
+            raise HTTPException(404, "Note not found.")
+        listing = request.query_params.get("list") == "all"
+        if q is None and tag is None and notebook is None and not listing:
+            notebook = note.notebook.id  # default: the note's own notebook
+        notes = note_list(store, notebook=notebook, tag=tag, q=q, offset=offset)
+        return note, notes
+
     @router.get("/notes/{note_id}")
     def note_page(
         request: Request,
@@ -228,14 +254,50 @@ def install_ui(app: FastAPI, *, page_size: int) -> None:
     ) -> HTMLResponse:
         store = open_store(request)
         try:
-            note = store.note(note_id)
-            if note is None:
-                raise HTTPException(404, "Note not found.")
-            listing = request.query_params.get("list") == "all"
-            if q is None and tag is None and notebook is None and not listing:
-                notebook = note.notebook.id  # default: the note's own notebook
-            notes = note_list(store, notebook=notebook, tag=tag, q=q, offset=offset)
+            note, notes = note_context(
+                store, note_id, request, q, tag, notebook, offset
+            )
             return browse(request, store, notes, note)
+        finally:
+            store.close()
+
+    # Fragments for static/app.js: swap the note pane in place and append list
+    # items while scrolling, so the list is never re-rendered.
+
+    @router.get("/ui/note/{note_id}")
+    def note_fragment(
+        request: Request,
+        note_id: str,
+        q: str | None = None,
+        tag: str | None = None,
+        notebook: str | None = None,
+        offset: Offset = 0,
+    ) -> HTMLResponse:
+        store = open_store(request)
+        try:
+            note, notes = note_context(
+                store, note_id, request, q, tag, notebook, offset
+            )
+            return templates.TemplateResponse(
+                request, "_note_pane.html", {"note": note, "list": notes}
+            )
+        finally:
+            store.close()
+
+    @router.get("/ui/items")
+    def items_fragment(
+        request: Request,
+        q: str | None = None,
+        tag: str | None = None,
+        notebook: str | None = None,
+        offset: Offset = 0,
+    ) -> HTMLResponse:
+        store = open_store(request)
+        try:
+            notes = note_list(store, notebook=notebook, tag=tag, q=q, offset=offset)
+            return templates.TemplateResponse(
+                request, "_note_items.html", {"note": None, "list": notes}
+            )
         finally:
             store.close()
 

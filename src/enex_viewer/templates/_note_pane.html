@@ -1,0 +1,31 @@
+{% if note %}
+<a class="back" href="{{ list.page_url(list.offset) }}">← {{ list.heading }}</a>
+<header class="note-head" data-title="{{ note.title }} · Nevernote archive">
+  <h1 class="note-heading">{{ note.title }}</h1>
+  <p class="note-meta">
+    <a href="/notebooks/{{ note.notebook.id }}">{% if note.notebook.stack %}{{ note.notebook.stack }} / {% endif %}{{ note.notebook.name }}</a>
+    {% if note.created %}<span>Created {{ note.created | date(true) }}</span>{% endif %}
+    {% if note.updated and note.updated != note.created %}<span>Updated {{ note.updated | date(true) }}</span>{% endif %}
+    {% if note.author %}<span>{{ note.author }}</span>{% endif %}
+    {% if note.source_url %}<a class="source" href="{{ note.source_url }}" target="_blank" rel="noopener noreferrer">{{ note.source_url | host }} ↗</a>{% endif %}
+  </p>
+  {% if note.tags %}
+  <p class="note-tags">{% for t in note.tags %}<a class="chip note-tag" href="/tags/{{ t | q }}">{{ t }}</a>{% endfor %}</p>
+  {% endif %}
+  {% if note.attachments %}
+  <details class="attachments">
+    <summary>{{ note.attachments | length }} attachment{{ "" if note.attachments | length == 1 else "s" }}</summary>
+    <ul>
+      {% for a in note.attachments %}
+      <li><a class="attachment-link" href="{{ a.url }}" target="_blank" rel="noopener">{{ a.filename or a.mime }}</a> <span class="count">{{ a.size | size }}</span></li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+</header>
+<iframe class="note-frame" src="{{ note.content_url }}" title="{{ note.title }}"
+        sandbox="allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
+        referrerpolicy="no-referrer"></iframe>
+{% else %}
+<div class="placeholder">Select a note</div>
+{% endif %}

@@ -116,7 +116,7 @@ Make targets for working on the viewer's code. They need `make setup` first.
 | Target | What it does |
 |---|---|
 | `make dev` | Runs the viewer in the foreground from the source tree, separate from the service. It uses `ENEX_DIR` (default `data/enex`), `DATA_DIR` (default `data/viewer`) and `PORT` (default 8765) from the environment, e.g. `ENEX_DIR=tmp/evernote PORT=8799 make dev`. |
-| `make check` | The full quality gate; run it before committing: `ruff format --check`, `ruff check`, `pyright` (strict) and `pytest`. |
+| `make check` | The full quality gate; run it before committing: `ruff format --check`, `ruff check`, `pyright` (strict) and `pytest`. The browser tests (`tests/test_browser.py`) drive the installed Google Chrome via Playwright and are skipped without it. |
 
 To build an index by hand: `uv run enex-viewer index --enex-dir … --data-dir …`.
 
@@ -128,7 +128,7 @@ To build an index by hand: `uv run enex-viewer index --enex-dir … --data-dir �
 | `render.py` | ENML → sanitized HTML, note-link resolution |
 | `store.py` | read-only queries (Pydantic models) |
 | `app.py` | API, note bodies, files |
-| `ui.py` + `templates/` | web UI |
+| `ui.py` + `templates/` + `static/app.js` | web UI; the script loads more notes as the list scrolls and opens notes in place, so the list keeps its position |
 
 ## License
 

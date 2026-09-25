@@ -131,3 +131,54 @@ def test_missing_index_page(tmp_path: Path) -> None:
     r = TestClient(create_app(tmp_path / "empty")).get("/")
     assert r.status_code == 503
     assert "enex-viewer index" in r.text
+
+
+def many_notes_client(tmp_path: Path, n: int, page_size: int) -> TestClient:
+    enex = tmp_path / "enex"
+    write(
+        enex / "Inbox.enex",
+        *(
+            note(f"N{i:03d}", created=f"2024{1 + i // 28:02d}{1 + i % 28:02d}T100000Z")
+            for i in range(n)
+        ),
+    )
+    build_index(enex, tmp_path / "data")
+    return TestClient(create_app(tmp_path / "data", page_size=page_size))
+
+
+def test_list_page_loads_script_and_marks_more(tmp_path: Path) -> None:
+    client = many_notes_client(tmp_path, 5, page_size=2)
+    doc = page(client, "/")
+    assert doc.xpath("//script[@src='/static/app.js']")
+    [more] = doc.find_class("load-more")
+    assert more.get("data-next") == "/ui/items?list=all&offset=2"
+
+
+def test_items_fragment_continues_the_list(tmp_path: Path) -> None:
+    client = many_notes_client(tmp_path, 5, page_size=2)
+    first = list_titles(page(client, "/"))
+    r = client.get("/ui/items?list=all&offset=2")
+    assert r.status_code == 200
+    frag = lxml_html.fragment_fromstring(r.text, create_parent="ol")
+    titles = [e.text_content().strip() for e in frag.find_class("note-title")]
+    assert len(titles) == 2 and set(titles).isdisjoint(first)
+    links = [str(a.get("href")) for a in frag.find_class("note-link")]
+    assert all(h.endswith("list=all&offset=2") for h in links)
+    [more] = frag.find_class("load-more")
+    assert more.get("data-next") == "/ui/items?list=all&offset=4"
+    last = client.get("/ui/items?list=all&offset=4").text
+    assert "load-more" not in last
+    assert last.count("note-link") == 1
+
+
+def test_note_fragment(client: TestClient) -> None:
+    r = client.get(f"/ui/note/{G1}?q=flour")
+    assert r.status_code == 200
+    frag = lxml_html.fragment_fromstring(r.text, create_parent="div")
+    assert texts(frag, "note-heading") == ["Pancakes"]
+    [head] = frag.find_class("note-head")
+    assert head.get("data-title") == "Pancakes · Nevernote archive"
+    [back] = frag.find_class("back")
+    assert back.get("href") == "/search?q=flour"
+    assert frag.findall(".//iframe")
+    assert client.get("/ui/note/nope").status_code == 404
