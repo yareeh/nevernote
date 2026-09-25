@@ -18,7 +18,10 @@ def fake_bin(path: Path, name: str, body: str) -> None:
 
 
 def run_install(
-    tmp_path: Path, env_lines: list[str], linger: str = "yes"
+    tmp_path: Path,
+    env_lines: list[str],
+    linger: str = "yes",
+    subuids: str | None = None,
 ) -> tuple[subprocess.CompletedProcess[str], Path, list[str]]:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir(exist_ok=True)
@@ -26,6 +29,13 @@ def run_install(
     fake_bin(bin_dir, "systemctl", f'echo "$*" >> {log}')
     fake_bin(bin_dir, "loginctl", f"echo {linger}")
     fake_bin(bin_dir, "podman", "exit 0")
+    fake_bin(bin_dir, "setfacl", f'echo "$*" >> {tmp_path / "setfacl.log"}')
+    subuid = tmp_path / "subuid"
+    subuid.write_text(
+        f"someone:200000:65536\n{os.environ['USER']}:100000:65536\n"
+        if subuids is None
+        else subuids
+    )
     env_file = tmp_path / ".env"
     env_file.write_text("\n".join(env_lines) + "\n")
     env = {
@@ -33,6 +43,7 @@ def run_install(
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
         "XDG_CONFIG_HOME": str(tmp_path / "cfg"),
         "ENV_FILE": str(env_file),
+        "SUBUID_FILE": str(subuid),
     }
     result = subprocess.run(
         ["bash", str(SCRIPT)], env=env, capture_output=True, text=True
@@ -63,11 +74,35 @@ def test_renders_quadlet_with_read_only_data_mount(tmp_path: Path) -> None:
         "ReadOnly=true",
         "DropCapability=all",
         "NoNewPrivileges=true",
-        "UserNS=keep-id:uid=10001,gid=10001",
+        "UserNS=nomap",
     ):
         assert hardening in text
     assert "@" not in text.replace("[Container]", "")
     assert calls == ["--user daemon-reload"]
+
+
+def test_grants_the_container_uid_read_only_access(tmp_path: Path) -> None:
+    # With UserNS=nomap the container's uid 10001 is host subuid start + 10001;
+    # it gets read (and directory traverse) on the index only, now and for
+    # files written later (default ACL).
+    data = data_with_index(tmp_path)
+    result, _, _ = run_install(tmp_path, [f"DATA_DIR={data}"])
+    assert result.returncode == 0, result.stderr
+    acl = (tmp_path / "setfacl.log").read_text().splitlines()
+    assert acl == [
+        f"-R -m u:110001:rX {data}",
+        f"-R -d -m u:110001:rX {data}",
+    ]
+    assert "110001" in result.stdout
+
+
+def test_missing_subuid_range_fails(tmp_path: Path) -> None:
+    data = data_with_index(tmp_path)
+    (tmp_path / "subuid").parent.mkdir(exist_ok=True)
+    result, quadlet, _ = run_install(tmp_path, [f"DATA_DIR={data}"], subuids="")
+    assert result.returncode != 0
+    assert "subuid" in result.stderr
+    assert not quadlet.exists()
 
 
 def test_missing_index_fails_without_installing(tmp_path: Path) -> None:
@@ -111,6 +146,7 @@ def test_rendered_quadlet_is_accepted_by_podman(tmp_path: Path) -> None:
     unit = result.stdout
     assert "---nevernote.service---" in unit
     assert f"-v {data}:/data:ro" in unit
+    assert "--userns nomap" in unit
     for flag in ("--read-only", "--cap-drop=all", "--security-opt=no-new-privileges"):
         assert flag in unit, flag
     assert shutil.which("podman")

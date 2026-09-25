@@ -64,7 +64,7 @@ and `VIEWER_PORT` from `.env` (see `.env.example`).
 
 | Target | What it does |
 |---|---|
-| `make viewer-install` | Writes the Quadlet unit from `.env` and reloads systemd, which generates `nevernote.service` (starts on boot). Refuses to install without an index (`make refresh` first). Also removes the old pre-container unit if one is present. |
+| `make viewer-install` | Writes the Quadlet unit from `.env` and reloads systemd, which generates `nevernote.service` (starts on boot). Refuses to install without an index (`make refresh` first). Grants the container's host UID read-only access to `DATA_DIR` with an ACL, including a default ACL so files from later refreshes stay readable. Also removes the old pre-container unit if one is present. |
 | `make viewer-up` | Builds the image (`podman build`), runs `viewer-install`, then (re)starts the viewer and prints its URL. Use it after pulling code changes or editing `.env`. |
 | `make viewer-down` | Stops the viewer. It still starts on the next boot; use `viewer-uninstall` to stop that. |
 | `make viewer-status` | Shows whether the viewer is running, with its last log lines. |
@@ -92,7 +92,9 @@ see **only** `data/viewer`, read-only. It follows the
 [OWASP Docker Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html):
 
 - a rootless engine (rule 11), so escaping the container doesn't land as root;
-- a non-root container user, mapped to you only for the read-only mount (rule 2);
+- a non-root container user (rule 2) that on the host is an unused sub-UID
+  (`UserNS=nomap`: subuid start + 10001), never your account. It gets read
+  access to `data/viewer` only, through an ACL the installer sets;
 - all capabilities dropped (rule 3) and `no-new-privileges` (rule 4);
 - pids and memory limits (rule 7);
 - a read-only root filesystem and volume (rule 8);

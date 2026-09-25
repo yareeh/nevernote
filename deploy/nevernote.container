@@ -15,10 +15,12 @@ Exec=enex-viewer serve --no-index
 # The only mount: the index and attachment files, read-only. No ENEX files,
 # no backup DB, no login token.
 Volume=@DATA_DIR@:/data:ro
-# Your user maps to the image's `viewer` user (10001), so the owner-only
-# data/ stays readable without loosening permissions. Container root and every
-# other uid map to unprivileged subuids.
-UserNS=keep-id:uid=10001,gid=10001
+# Your own uid is not mapped into the container at all: container root and
+# the image's `viewer` user (10001) are unprivileged subuids on the host
+# (subuid start + 10001). The installer gives that uid read-only access to the
+# index with an ACL. A container escape therefore lands as a nobody-like uid,
+# not as you.
+UserNS=nomap
 ReadOnly=true
 Tmpfs=/tmp:rw,size=64m,mode=1777
 DropCapability=all

@@ -30,6 +30,19 @@ if [[ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null)" != yes ]]; t
     echo "         start at boot. Enable with: sudo loginctl enable-linger $USER" >&2
 fi
 
+# The container's `viewer` user (10001) runs as subuid start + 10001 on the
+# host (UserNS=nomap). Give that uid read access to the index, and to files
+# `make refresh` writes later (default ACL). Nothing else in data/ is readable.
+SUBUID_FILE="${SUBUID_FILE:-/etc/subuid}"
+subuid_start="$(awk -F: -v u="$USER" '$1 == u { print $2; exit }' "$SUBUID_FILE" 2>/dev/null || true)"
+[[ -n "$subuid_start" ]] || die "no subuid range for $USER in $SUBUID_FILE (needed for rootless Podman)"
+VIEWER_HOST_UID=$((subuid_start + 10001))
+command -v setfacl >/dev/null || die "setfacl is not installed; run: sudo apt install acl"
+setfacl -R -m "u:$VIEWER_HOST_UID:rX" "$DATA_DIR"
+setfacl -R -d -m "u:$VIEWER_HOST_UID:rX" "$DATA_DIR"
+# Parents need no ACL: Podman bind-mounts DATA_DIR itself, so the container
+# never traverses ~/, ~/git or data/.
+
 # The pre-container version ran as a plain user unit with the same name.
 if [[ -f "$LEGACY_UNIT" ]]; then
     systemctl --user disable --now nevernote.service >/dev/null 2>&1 || true
@@ -42,6 +55,6 @@ sed -e "s|@DATA_DIR@|$DATA_DIR|g" -e "s|@PORT@|$PORT|g" \
     "$ROOT/deploy/nevernote.container" > "$QUADLET"
 systemctl --user daemon-reload  # runs Podman's generator -> nevernote.service
 echo "Installed $QUADLET"
-echo "  DATA_DIR=$DATA_DIR (mounted read-only)"
+echo "  DATA_DIR=$DATA_DIR (mounted read-only; readable by container uid $VIEWER_HOST_UID)"
 echo "  PORT=$PORT"
 echo "Viewer URL: http://$(hostname -I | awk '{print $1}'):$PORT"
