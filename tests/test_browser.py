@@ -4,6 +4,7 @@ Run against a live server in a thread with Playwright driving the installed
 Google Chrome; skipped when Chrome isn't available.
 """
 
+import os
 import socket
 import threading
 from collections.abc import Iterator
@@ -65,6 +66,8 @@ def browser() -> Iterator[Browser]:
         try:
             b = p.chromium.launch(channel="chrome")
         except Error:
+            if os.environ.get("CI"):
+                raise  # CI runners have Chrome; a skip there would hide bugs
             pytest.skip("Google Chrome is not installed")
         yield b
         b.close()
