@@ -5,12 +5,10 @@
 .env.*
 !.env.example
 
-# Evernote backup, ENEX exports, Joplin CLI profiles, DB dumps (private data)
+# Evernote backup, ENEX exports (private data)
 data/
-data-test/
 tmp/
 
 # Tooling
 .venv/
-node_modules/
 __pycache__/
