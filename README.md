@@ -33,7 +33,7 @@ To serve other ENEX files, e.g. exports from Evernote.app, set `ENEX_DIR` in
 echo 'ENEX_DIR=./tmp/evernote' > .env && make viewer-up
 ```
 
-After re-exporting, run `make viewer-reindex`.
+To pick up changes from Evernote later, run `make refresh`.
 On start it rebuilds the index when the ENEX files changed. An index takes
 seconds: 632 MB of ENEX indexes in about 2 s.
 
@@ -59,6 +59,7 @@ starts on boot (lingering is enabled for the user). The viewer targets take
 |---|---|
 | `make evernote-init` | Creates `data/evernote/en_backup.db` and logs in to Evernote. It prints a URL to open in a browser, which works with 2FA/SSO. Run it once; `--force` on `evernote-backup init-db` starts over. `data/` is made private (mode 700) and the DB 600, since it stores your Evernote login token. |
 | `make evernote-sync` | Downloads everything new or changed from Evernote into the backup DB. The first run takes a while; after that it's incremental, so rerun it any time. |
+| `make refresh` | The routine update: syncs from Evernote, exports to a temporary `data/.enex-refresh/`, rebuilds the viewer's index (the viewer keeps serving and switches over atomically), then writes the full export to `data/archive/enex-DATE.tar.zst` (zstd, about 64% of the raw size). The archive is only kept after `zstd -t` and a file-count check pass, and it replaces the previous one, so there's always exactly one. The temporary export is deleted, including on failure. `scripts/refresh.sh --from DIR` archives and indexes an existing export instead. Restore with `tar -I zstd -xf data/archive/enex-DATE.tar.zst`. |
 | `make evernote-export` | Writes one `.enex` per notebook into `data/enex/` (stacks become subdirectories), with each note's GUID so links between notes work in the viewer. Overwrites the previous export. |
 
 **Viewer (systemd user service)**
@@ -70,7 +71,6 @@ starts on boot (lingering is enabled for the user). The viewer targets take
 | `make viewer-down` | Stops the viewer. It still starts on the next boot; use `viewer-uninstall` to stop that. |
 | `make viewer-status` | Shows whether the viewer is running, with its last log lines. |
 | `make viewer-logs` | Follows the viewer's log (indexing, requests) from the journal; Ctrl-C to stop. |
-| `make viewer-reindex` | Restarts the viewer, which re-indexes if the ENEX files changed. Use it after `evernote-export`. |
 | `make viewer-uninstall` | Stops the viewer and removes the service. Leaves `data/` alone. |
 
 Keep `data/evernote/en_backup.db` and the ENEX files: they are the archive.

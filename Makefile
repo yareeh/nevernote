@@ -12,7 +12,7 @@ UNIT := nevernote.service
 
 .PHONY: help setup evernote-init evernote-sync evernote-export \
         viewer-install viewer-up viewer-down viewer-status viewer-logs \
-        viewer-reindex viewer-uninstall dev check audit
+        viewer-uninstall refresh dev check audit
 
 ##@ Operating
 
@@ -31,6 +31,8 @@ evernote-init: ## log in to Evernote (OAuth URL is printed) and create the backu
 	chmod 600 $(DB)  # holds the Evernote login token
 evernote-sync: ## download/refresh everything from Evernote into the backup DB
 	$(EB) sync --use-system-ssl-ca -d $(DB)
+refresh: ## sync, re-index the viewer and replace the compressed ENEX archive in data/archive/
+	scripts/refresh.sh
 evernote-export: ## write one .enex per notebook (with note GUIDs) into data/enex/
 	$(EB) export -d $(DB) --add-guid --overwrite data/enex/
 
@@ -45,8 +47,6 @@ viewer-status: ## show whether the viewer is running
 	$(SC) --no-pager status $(UNIT)
 viewer-logs: ## follow viewer logs
 	journalctl --user -u $(UNIT) -f
-viewer-reindex: ## restart the viewer; it re-indexes if the ENEX files changed
-	$(SC) restart $(UNIT)
 viewer-uninstall: ## stop the viewer and remove the service (keeps data/)
 	-$(SC) disable --now $(UNIT)
 	rm -f $${XDG_CONFIG_HOME:-$$HOME/.config}/systemd/user/$(UNIT)
