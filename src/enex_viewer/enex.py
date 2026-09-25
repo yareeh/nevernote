@@ -1,13 +1,18 @@
 """Stream notes out of ENEX files (Evernote export format).
 
-Notes are parsed one at a time with iterparse, so multi-GB exports never have
-to fit in memory; only the current note and its attachments do.
+Notes are parsed one at a time with a pull parser, so multi-GB exports never
+have to fit in memory; only the current note and its attachments do.
+
+evernote-backup (1.14.0) wraps note content in <![CDATA[...]]> without
+escaping "]]>" inside it, so a web clip that contains its own CDATA section
+ends the wrapper early and the file is not well-formed XML. repair_cdata()
+fixes that on the fly, the way Evernote's own exporter escapes it.
 """
 
 import base64
 import hashlib
 import xml.etree.ElementTree as ET
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -84,10 +89,91 @@ def _note(elem: ET.Element) -> Note:
     )
 
 
+_CONTENT_OPEN = b"<content>"
+_CONTENT_CLOSE = b"</content>"
+_CDATA_OPEN = b"<![CDATA["
+_CDATA_CLOSE = b"]]>"
+_CDATA_CLOSE_ESCAPED = b"]]]]><![CDATA[>"  # "]]" + close + reopen + ">"
+_WHITESPACE = b" \t\r\n"
+_READ_SIZE = 1 << 20
+
+
+def repair_cdata(chunks: Iterable[bytes]) -> Iterator[bytes]:
+    """Escape stray "]]>" inside <content> CDATA sections of an ENEX stream.
+
+    Inside a note's content CDATA, a "]]>" ends the section only when
+    whitespace and "</content>" follow; "]]><![CDATA[" is the standard way to
+    split a section and is kept. Any other "]]>" is text and gets escaped.
+    Output is the same however the input is chunked.
+    """
+    source = iter(chunks)
+    buf = b""
+    eof = False
+    inside = False
+
+    def more() -> None:
+        nonlocal buf, eof
+        try:
+            buf += next(source)
+        except StopIteration:
+            eof = True
+
+    def skip_ws(i: int) -> int:
+        while i < len(buf) and buf[i] in _WHITESPACE:
+            i += 1
+        return i
+
+    while True:
+        marker = _CDATA_CLOSE if inside else _CONTENT_OPEN
+        i = buf.find(marker)
+        if i == -1:
+            if eof:
+                if buf:
+                    yield buf
+                return
+            keep = len(marker) - 1  # the marker may straddle chunks
+            if len(buf) > keep:
+                yield buf[:-keep]
+                buf = buf[-keep:]
+            more()
+            continue
+        after = i + len(marker)
+        k = skip_ws(after)
+        lookahead = max(len(_CDATA_OPEN), len(_CONTENT_CLOSE))
+        if not eof and (k == len(buf) or len(buf) - k < lookahead):
+            more()
+            continue
+        if not inside:
+            if buf.startswith(_CDATA_OPEN, k):
+                inside = True
+                after = k + len(_CDATA_OPEN)
+            yield buf[:after]
+        elif buf.startswith(_CONTENT_CLOSE, k):
+            inside = False
+            yield buf[:after]
+        elif buf.startswith(_CDATA_OPEN, after):
+            after += len(_CDATA_OPEN)
+            yield buf[:after]
+        else:
+            yield buf[:i] + _CDATA_CLOSE_ESCAPED
+        buf = buf[after:]
+
+
 def iter_notes(path: Path) -> Iterator[Note]:
-    events = ET.iterparse(path, events=("start", "end"))
-    _, root = next(events)  # <en-export>
-    for event, elem in events:
-        if event == "end" and elem.tag == "note":
-            yield _note(elem)
-            root.clear()  # drop parsed notes so memory stays flat
+    parser: ET.XMLPullParser[ET.Element] = ET.XMLPullParser(events=("start", "end"))
+    root: ET.Element | None = None
+    with path.open("rb") as f:
+        chunks = iter(lambda: f.read(_READ_SIZE), b"")
+        for chunk in repair_cdata(chunks):
+            parser.feed(chunk)
+            for item in parser.read_events():
+                # Only start/end are requested; other event shapes can't occur.
+                if len(item) != 2 or not isinstance(item[1], ET.Element):
+                    continue
+                event, elem = item[0], item[1]
+                if root is None:
+                    root = elem  # <en-export>
+                if event == "end" and elem.tag == "note":
+                    yield _note(elem)
+                    root.clear()  # drop parsed notes so memory stays flat
+    parser.close()
