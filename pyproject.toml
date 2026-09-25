@@ -38,6 +38,17 @@ packages = ["src/enex_viewer"]
 
 [tool.uv]
 default-groups = ["dev", "backup"]
+# evernote-backup 1.14.0 pins these exactly to vulnerable versions:
+#   thrift 0.21.0: CVE-2026-66053 (TLS host mismatch), CVE-2026-43871,
+#                  CVE-2026-41608 -> fixed in 0.24.0
+#   click 8.1.8:   CVE-2026-7246 (click.edit command injection) -> 8.3.3
+# thrift 0.24.0 breaks evernote-backup's bundled-CA path ("certfile should be
+# a valid filesystem path"), so the Makefile passes --use-system-ssl-ca.
+# Verified with a real sync and export. Drop once upstream updates.
+override-dependencies = [
+    "thrift>=0.24.0",
+    "click>=8.3.3",
+]
 
 [tool.ruff]
 line-length = 88

@@ -4,6 +4,8 @@
 #   make viewer-up                                     # -> http://<this box>:8765
 SHELL := /bin/bash
 DB := data/evernote/en_backup.db
+# --use-system-ssl-ca on network commands: see override-dependencies in
+# pyproject.toml (thrift 0.24.0 rejects evernote-backup's bundled CA file).
 EB := uv run evernote-backup
 SC := systemctl --user
 UNIT := nevernote.service
@@ -25,9 +27,9 @@ setup: ## install evernote-backup and the viewer's dev environment (uv)
 
 evernote-init: ## log in to Evernote (OAuth URL is printed) and create the backup DB
 	mkdir -p data/evernote
-	$(EB) init-db -d $(DB)
+	$(EB) init-db --use-system-ssl-ca -d $(DB)
 evernote-sync: ## download/refresh everything from Evernote into the backup DB
-	$(EB) sync -d $(DB)
+	$(EB) sync --use-system-ssl-ca -d $(DB)
 evernote-export: ## write one .enex per notebook (with note GUIDs) into data/enex/
 	$(EB) export -d $(DB) --add-guid --overwrite data/enex/
 
