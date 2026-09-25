@@ -266,3 +266,19 @@ for releases at least 7 days old; security updates are not delayed. Meanwhile
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+## Support
+
+Nevernote was built for personal reasons: to get my own notes out of Evernote
+and keep them readable on my own hardware. It was vibe coded for that one job.
+It works for me, but getting it running assumes a bit of a hobbyist mindset:
+you'll be dealing with Evernote logins, rootless Podman, systemd user services
+and a reverse proxy of your choosing.
+
+Because of that:
+
+- **No roadmap.** Don't expect new features or versions in the foreseeable
+  future. Once the notes were out of Evernote, the job was done.
+- **Issues and pull requests** may be read, eventually, maybe.
+- **Support** can be purchased from the author at a ridiculously,
+  astronomically high cost. Forking is free, and it's MIT licensed.
