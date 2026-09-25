@@ -7,8 +7,8 @@ copied to the client beyond what the browser shows.
 ```
 Evernote ──evernote-backup──► data/evernote/en_backup.db ──export --add-guid──► data/enex/*.enex
                                                                                     │ (read-only)
-                                        enex-viewer (Docker, :8765)  ◄──────────────┘
-                                        ├── index.sqlite + blobs/<md5>   (derived, rebuilt when ENEX changes)
+                          enex-viewer (systemd user service, :8765)  ◄──────────────┘
+                                        ├── data/viewer/ index.sqlite + blobs/<md5>  (derived, rebuilt when ENEX changes)
                                         ├── web UI      /               notebooks | notes | note
                                         └── JSON API    /api/...
 ```
@@ -28,7 +28,7 @@ To serve other ENEX files, e.g. exports from Evernote.app, set `ENEX_DIR` in
 echo 'ENEX_DIR=./tmp/evernote' > .env && make viewer-up
 ```
 
-After re-exporting, run `make viewer-reindex` (or just restart the container).
+After re-exporting, run `make viewer-reindex`.
 On start it rebuilds the index when the ENEX files changed. An index takes
 seconds: 632 MB of ENEX indexes in about 2 s.
 
@@ -36,8 +36,10 @@ seconds: 632 MB of ENEX indexes in about 2 s.
 
 Make targets for running the archive: backing up Evernote and serving the
 viewer. `make` (or `make help`) lists them in the same two groups as this
-README. The viewer targets read `.env` through Docker Compose; set `ENEX_DIR`
-and `VIEWER_PORT` there.
+README. The viewer runs directly on this host as a systemd user service
+(`~/.config/systemd/user/nevernote.service`) using the repo's `.venv`; it
+starts on boot (lingering is enabled for the user). The viewer targets take
+`ENEX_DIR`, `DATA_DIR` and `VIEWER_PORT` from `.env` (see `.env.example`).
 
 **Setup**
 
@@ -54,17 +56,20 @@ and `VIEWER_PORT` there.
 | `make evernote-sync` | Downloads everything new or changed from Evernote into the backup DB. The first run takes a while; after that it's incremental, so rerun it any time. |
 | `make evernote-export` | Writes one `.enex` per notebook into `data/enex/` (stacks become subdirectories), with each note's GUID so links between notes work in the viewer. Overwrites the previous export. |
 
-**Viewer (Docker)**
+**Viewer (systemd user service)**
 
 | Target | What it does |
 |---|---|
-| `make viewer-up` | Builds the image and starts the viewer in the background, then prints its URL. The container restarts on boot. Rerun it after pulling code changes to rebuild. |
-| `make viewer-down` | Stops and removes the container. The index volume stays, so the next `viewer-up` starts without re-indexing. |
-| `make viewer-logs` | Follows the viewer's log (indexing, requests); Ctrl-C to stop. |
+| `make viewer-install` | Writes the service unit from `.env` and enables it to start on boot. Checks that `.venv` and `ENEX_DIR` exist first. Rerun it after changing `.env`. |
+| `make viewer-up` | Runs `viewer-install`, then (re)starts the viewer and prints its URL. Use it after pulling code changes or editing `.env`. |
+| `make viewer-down` | Stops the viewer. It still starts on the next boot; use `viewer-uninstall` to stop that. |
+| `make viewer-status` | Shows whether the viewer is running, with its last log lines. |
+| `make viewer-logs` | Follows the viewer's log (indexing, requests) from the journal; Ctrl-C to stop. |
 | `make viewer-reindex` | Restarts the viewer, which re-indexes if the ENEX files changed. Use it after `evernote-export`. |
+| `make viewer-uninstall` | Stops the viewer and removes the service. Leaves `data/` alone. |
 
 Keep `data/evernote/en_backup.db` and the ENEX files: they are the archive.
-Everything under the Docker volume is derived from them.
+Everything in `data/viewer/` is derived from them and can be deleted.
 
 ## What it does
 
@@ -110,7 +115,7 @@ Make targets for working on the viewer's code. They need `make setup` first.
 
 | Target | What it does |
 |---|---|
-| `make dev` | Runs the viewer from the source tree without Docker. It uses `ENEX_DIR` (default `data/enex`), `DATA_DIR` (default `data/viewer`) and `PORT` (default 8765) from the environment, e.g. `ENEX_DIR=tmp/evernote PORT=8799 make dev`. |
+| `make dev` | Runs the viewer in the foreground from the source tree, separate from the service. It uses `ENEX_DIR` (default `data/enex`), `DATA_DIR` (default `data/viewer`) and `PORT` (default 8765) from the environment, e.g. `ENEX_DIR=tmp/evernote PORT=8799 make dev`. |
 | `make check` | The full quality gate; run it before committing: `ruff format --check`, `ruff check`, `pyright` (strict) and `pytest`. |
 
 To build an index by hand: `uv run enex-viewer index --enex-dir … --data-dir …`.

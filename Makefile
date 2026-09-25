@@ -5,10 +5,12 @@
 SHELL := /bin/bash
 DB := data/evernote/en_backup.db
 EB := uv run evernote-backup
-DC := docker compose
+SC := systemctl --user
+UNIT := nevernote.service
 
 .PHONY: help setup evernote-init evernote-sync evernote-export \
-        viewer-up viewer-down viewer-logs viewer-reindex dev check
+        viewer-install viewer-up viewer-down viewer-status viewer-logs \
+        viewer-reindex viewer-uninstall dev check
 
 ##@ Operating
 
@@ -29,15 +31,23 @@ evernote-sync: ## download/refresh everything from Evernote into the backup DB
 evernote-export: ## write one .enex per notebook (with note GUIDs) into data/enex/
 	$(EB) export -d $(DB) --add-guid --overwrite data/enex/
 
-viewer-up: ## build and start the viewer in Docker (restarts on boot)
-	$(DC) up -d --build
-	@echo "Viewer: http://$$(hostname -I | awk '{print $$1}'):$${VIEWER_PORT:-8765}"
-viewer-down: ## stop the viewer
-	$(DC) down
+viewer-install: ## install/refresh the systemd user service from .env (starts on boot)
+	deploy/install-service.sh
+viewer-up: ## (re)install and (re)start the viewer on this host
+	deploy/install-service.sh
+	$(SC) restart $(UNIT)
+viewer-down: ## stop the viewer (it still starts on boot; see viewer-uninstall)
+	$(SC) stop $(UNIT)
+viewer-status: ## show whether the viewer is running
+	$(SC) --no-pager status $(UNIT)
 viewer-logs: ## follow viewer logs
-	$(DC) logs -f viewer
+	journalctl --user -u $(UNIT) -f
 viewer-reindex: ## restart the viewer; it re-indexes if the ENEX files changed
-	$(DC) restart viewer
+	$(SC) restart $(UNIT)
+viewer-uninstall: ## stop the viewer and remove the service (keeps data/)
+	-$(SC) disable --now $(UNIT)
+	rm -f $${XDG_CONFIG_HOME:-$$HOME/.config}/systemd/user/$(UNIT)
+	$(SC) daemon-reload
 
 ##@ Development
 
