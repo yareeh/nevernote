@@ -10,9 +10,13 @@ DC := docker compose
 .PHONY: help setup evernote-init evernote-sync evernote-export \
         viewer-up viewer-down viewer-logs viewer-reindex dev check
 
-help:
+##@ Operating
+
+help: ## show this list
 	@sed -n '1,/^SHELL/p' Makefile | grep '^#' | sed 's/^# \{0,1\}//'
-	@grep -E '^[a-z-]+:.*## ' Makefile | sed 's/:.*## /\t/' | column -t -s$$'\t'
+	@awk 'BEGIN {FS = ":.*## "} \
+	    /^##@ / {printf "\n%s\n", substr($$0, 5)} \
+	    /^[a-z-]+:.*## / {printf "  %-17s %s\n", $$1, $$2}' Makefile
 
 setup: ## install evernote-backup and the viewer's dev environment (uv)
 	uv sync
@@ -34,6 +38,8 @@ viewer-logs: ## follow viewer logs
 	$(DC) logs -f viewer
 viewer-reindex: ## restart the viewer; it re-indexes if the ENEX files changed
 	$(DC) restart viewer
+
+##@ Development
 
 dev: ## run the viewer locally without Docker (env ENEX_DIR, PORT)
 	uv run enex-viewer serve
