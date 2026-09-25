@@ -1,4 +1,4 @@
-"""Command line: `enex-viewer index`."""
+"""Command line: `enex-viewer index` and `enex-viewer serve`."""
 
 import argparse
 import logging
@@ -7,7 +7,12 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from enex_viewer.index import build_index
+from uvicorn import run as uvicorn_run
+
+from enex_viewer.app import create_app
+from enex_viewer.index import build_index, index_is_stale
+
+log = logging.getLogger(__name__)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -27,7 +32,26 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="enex-viewer")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("index", parents=[common], help="rebuild the index from ENEX files")
+    serve = sub.add_parser(
+        "serve", parents=[common], help="rebuild the index if stale, then serve"
+    )
+    serve.add_argument("--host", default=os.environ.get("HOST", "0.0.0.0"))
+    serve.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8765")))
     return parser
+
+
+def _index(enex_dir: Path, data_dir: Path) -> None:
+    stats = build_index(enex_dir, data_dir)
+    print(
+        f"Indexed {stats.notebooks} notebooks, {stats.notes} notes, "
+        f"{stats.resources} attachments into {data_dir}"
+        + (
+            f" ({stats.duplicate_guids} duplicate notes skipped)"
+            if stats.duplicate_guids
+            else ""
+        ),
+        flush=True,
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -38,16 +62,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not enex_dir.is_dir():
         print(f"error: {enex_dir} is not a directory", file=sys.stderr)
         return 2
-    stats = build_index(enex_dir, data_dir)
-    print(
-        f"Indexed {stats.notebooks} notebooks, {stats.notes} notes, "
-        f"{stats.resources} attachments into {data_dir}"
-        + (
-            f" ({stats.duplicate_guids} duplicate notes skipped)"
-            if stats.duplicate_guids
-            else ""
-        )
-    )
+    if args.command == "index":
+        _index(enex_dir, data_dir)
+        return 0
+    if index_is_stale(enex_dir, data_dir):
+        _index(enex_dir, data_dir)
+    else:
+        log.info("index is up to date")
+    uvicorn_run(create_app(data_dir), host=args.host, port=args.port)
     return 0
 
 

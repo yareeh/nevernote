@@ -27,6 +27,32 @@ def test_index_command_reads_env(
     assert "1 notebooks, 1 notes" in capsys.readouterr().out
 
 
+class FakeUvicorn:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def __call__(self, app: object, **kwargs: object) -> None:
+        self.calls.append({"app": app, **kwargs})
+
+
+def test_serve_reindexes_when_stale_then_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = FakeUvicorn()
+    monkeypatch.setattr("enex_viewer.cli.uvicorn_run", fake)
+    write(tmp_path / "enex" / "Inbox.enex", note("A"))
+    data = tmp_path / "data"
+    argv = ["serve", "--enex-dir", str(tmp_path / "enex"), "--data-dir", str(data)]
+    assert main([*argv, "--port", "9999"]) == 0
+    assert (data / "index.sqlite").exists()
+    [call] = fake.calls
+    assert (call["host"], call["port"]) == ("0.0.0.0", 9999)
+
+    built = (data / "index.sqlite").stat().st_mtime_ns
+    assert main(argv) == 0
+    assert (data / "index.sqlite").stat().st_mtime_ns == built  # not stale
+
+
 def test_missing_enex_dir_fails(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
