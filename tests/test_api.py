@@ -151,3 +151,9 @@ def test_external_images_are_blocked_until_asked_for(client: TestClient) -> None
 
 def test_notes_without_external_images_list_none(client: TestClient) -> None:
     assert client.get(f"/api/notes/{G1}").json()["external_images"] == []
+
+
+def test_favicon(client: TestClient) -> None:
+    r = client.get("/favicon.ico")
+    assert r.status_code == 200
+    assert r.content[:4] == b"\x00\x00\x01\x00"  # ICO header
