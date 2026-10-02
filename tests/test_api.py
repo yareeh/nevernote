@@ -130,3 +130,9 @@ def test_healthz(client: TestClient) -> None:
     body = client.get("/healthz").json()
     assert body["notes"] == 3
     assert body["built_at"]
+
+
+def test_favicon(client: TestClient) -> None:
+    r = client.get("/favicon.ico")
+    assert r.status_code == 200
+    assert r.content[:4] == b"\x00\x00\x01\x00"  # ICO header

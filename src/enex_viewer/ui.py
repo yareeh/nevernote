@@ -13,7 +13,7 @@ from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, FastAPI, HTTPException, Query, Request
 from fastapi.exception_handlers import http_exception_handler
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -106,6 +106,11 @@ def install_ui(app: FastAPI, *, page_size: int) -> None:
     templates.env.filters["size"] = human_size
     templates.env.filters["q"] = _path_segment
     app.mount("/static", StaticFiles(directory=_HERE / "static"), name="static")
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon() -> FileResponse:
+        # Browsers ask for this path regardless of the <link rel="icon"> tags.
+        return FileResponse(_HERE / "static" / "favicon.ico")
 
     def open_store(request: Request) -> Store:
         try:
