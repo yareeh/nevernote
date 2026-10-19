@@ -4,7 +4,7 @@
 
 FROM ghcr.io/astral-sh/uv:0.12.19@sha256:04d046b13e60d6bcec73cbc5e1cad25d680dea90c8573340950a0ac2d1aef424 AS uv
 
-FROM docker.io/library/python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9 AS build
+FROM docker.io/library/python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS build
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 \
@@ -19,7 +19,7 @@ RUN uv sync --locked --no-dev --no-group backup --no-editable
 
 # Runtime: the same Python base (the venv points at its interpreter), no uv,
 # no build tools, no source tree.
-FROM docker.io/library/python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9
+FROM docker.io/library/python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
 RUN groupadd --system --gid 10001 viewer \
     && useradd --system --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin viewer
 COPY --from=build /app/.venv /app/.venv
